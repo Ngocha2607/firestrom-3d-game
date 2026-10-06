@@ -1,6 +1,6 @@
 # Bão Lửa
 
-Game bắn súng màn hình ngang theo phong cách arcade, đồ họa pixel art vẽ hoàn toàn bằng code (không dùng file ảnh).
+Game bắn súng màn hình ngang theo phong cách arcade, đồ họa **2.5D/3D bằng Three.js (WebGL 2)**. Mọi mô hình, texture, hiệu ứng và âm thanh đều được tạo bằng code, không dùng file ảnh hay file âm thanh.
 Có 3 nhân vật, 3 màn chơi và 3 trùm. Chơi được từ 1 đến 4 người, trên cùng một máy hoặc qua mạng LAN.
 
 ## Chạy game
@@ -34,7 +34,8 @@ Chỉ cần Node.js 16 trở lên, không phải cài thêm thư viện nào. L�
 - Giữ ↑ để bắn lên, bắn chéo khi vừa chạy vừa ngắm. Đang trên không thì giữ ↓ để bắn xuống. Đứng yên bấm ↓ để nằm.
 - Bấm ↓ + Nhảy khi đứng trên bục mỏng để rơi xuống tầng dưới.
 - Lướt giúp vượt hố xa và tránh đạn (không bị trúng đạn trong lúc lướt).
-- P / Esc / Start: tạm dừng. M: tắt hoặc bật âm thanh. Đang chơi mà bấm Bắn trên một thiết bị mới là có thêm người tham gia giữa trận.
+- P / Esc / Start: tạm dừng. M: tắt hoặc bật âm thanh. **Q: đổi chất lượng đồ họa** (Cao: có bóng đổ; Thấp: cho máy yếu).
+- Đang chơi mà bấm Bắn trên một thiết bị mới là có thêm người tham gia giữa trận.
 
 ## Nội dung game
 
@@ -64,12 +65,21 @@ Chết sẽ mất vũ khí đang dùng.
 ## Cấu trúc
 
 ```
-index.html       khung trang, điều khiển cảm ứng, bảng LAN
-src/audio.js     âm thanh tổng hợp bằng WebAudio và nhạc nền
-src/sprites.js   pixel art: nhân vật, kẻ địch, trùm, ô gạch, nền parallax
-src/levels.js    dữ liệu 3 màn chơi
-src/game.js      vòng lặp, input, vật lý, AI, trùm, HUD, chế độ LAN
-server.js        máy chủ LAN: phục vụ file tĩnh và chuyển tiếp WebSocket
+index.html         khung trang, CSS giao diện, điều khiển cảm ứng, bảng LAN
+src/vendor/        Three.js r147 + bloom (đã tải về sẵn, chơi được khi không có mạng)
+src/data.js        nhân vật, màu người chơi, kích thước thế giới mô phỏng
+src/audio.js       âm thanh tổng hợp bằng WebAudio và nhạc nền
+src/levels.js      dữ liệu 3 màn chơi
+src/models.js      mô hình 3D có khớp: anh hùng, lính, tháp pháo, drone, bọ, trùm, vật phẩm
+src/world3d.js     dựng hình: môi trường từng màn, shader nước/dung nham/mây, đèn động,
+                   bóng đổ, hạt, vụ nổ, bloom, camera
+src/ui.js          giao diện DOM: tiêu đề, chọn nhân vật, HUD, banner, chữ nổi
+src/game.js        mô phỏng: vòng lặp, input, vật lý, AI, trùm, chơi đội, LAN
+server.js          máy chủ LAN: phục vụ file tĩnh và chuyển tiếp WebSocket
 ```
 
+Lõi mô phỏng (`game.js`) tách hẳn khỏi phần hiển thị: `world3d.js` và `ui.js` chỉ đọc trạng thái và vẽ.
+
 Kiến trúc LAN: máy chủ phòng chạy toàn bộ mô phỏng ở 60 khung hình/giây. Các máy khách gửi phím bấm lên, và nhận lại ảnh chụp trạng thái 30 lần/giây kèm sự kiện âm thanh. `server.js` chỉ phục vụ `index.html` và thư mục `src/`, và chỉ chuyển tiếp tin nhắn chứ không chạy logic game.
+
+Cần trình duyệt có WebGL 2 (Chrome, Edge, Firefox, Safari bản mới). Nếu máy chạy chậm, bấm **Q** để chuyển sang chất lượng thấp.

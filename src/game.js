@@ -1,12 +1,9 @@
-// game.js — Bão Lửa: loop, input (2 keyboard halves, gamepads, touch), 1–4 player co-op,
-// enemies, bosses, the shared "Bão Lửa" storm super, HUD and screens
+// game.js — Bão Lửa simulation: loop, input (2 keyboard halves, gamepads, touch), 1–4 player co-op,
+// enemies, bosses, the shared "Bão Lửa" storm super, LAN. Drawing lives in world3d.js and ui.js.
 (() => {
   'use strict';
   const GRAV = 0.27, JUMP = -5.7, HAZARD_Y = 246, STEP = 1000 / 60, REVIVE = 100;
-  const FONT_D = "Bungee, Impact, 'Arial Black', sans-serif";
-  const FONT_B = "'Chakra Petch', 'Segoe UI', system-ui, sans-serif";
   const INK = '#f3ecff', DIM = '#a39cc0', EMBER = '#ff6a3d', VOLT = '#ffd23f', JADE = '#38d6b4', BLOOD = '#ff3b4f';
-  const PCOL = ['#ff6a3d', '#38d6b4', '#ffd23f', '#c18af0'];
   const WEAPON_NAME = { P: 'XUNG KÍCH', S: 'ĐẠN TỎA', L: 'LASER', H: 'TÊN LỬA' };
   const SCORE = { soldier: 100, turret: 300, drone: 150, hopper: 200, capsule: 50 };
   const SLOT_NAME = { kbA: 'BÀN PHÍM 1', kbB: 'BÀN PHÍM 2', touch: 'CẢM ỨNG', pad0: 'TAY CẦM 1', pad1: 'TAY CẦM 2', pad2: 'TAY CẦM 3', pad3: 'TAY CẦM 4' };
@@ -24,20 +21,8 @@
     SFX[n] = () => { if (netRole === 'host' && sfxQueue.length < 40) sfxQueue.push(n); f(); };
   }
 
-  const view = document.getElementById('screen'), vctx = view.getContext('2d');
-  const buf = makeCanvas(W, H), g = buf.getContext('2d');
-  let scale = 1, offX = 0, offY = 0, dpr = 1, scan = null;
-
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const r = view.getBoundingClientRect();
-    view.width = Math.max(1, Math.round(r.width * dpr)); view.height = Math.max(1, Math.round(r.height * dpr));
-    scale = Math.min(view.width / W, view.height / H);
-    offX = Math.round((view.width - W * scale) / 2); offY = Math.round((view.height - H * scale) / 2);
-    const p = makeCanvas(1, 3), pc = p.getContext('2d'); pc.fillStyle = 'rgba(0,0,0,0.16)'; pc.fillRect(0, 2, 1, 1);
-    scan = vctx.createPattern(p, 'repeat');
-  }
-  addEventListener('resize', resize); resize();
+  const view = document.getElementById('screen');
+  VIEW3D.init(view);
 
   // ---------- input: every device is a "slot" with its own held (k) and just-pressed (p) state ----------
   const inputs = {};
@@ -47,7 +32,7 @@
     kbA: { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyF: 'fire', KeyG: 'jump', Space: 'jump', KeyH: 'dash', KeyR: 'super' },
     kbB: { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Comma: 'fire', Period: 'jump', Slash: 'dash', KeyL: 'super',
       Numpad1: 'fire', Numpad2: 'jump', Numpad3: 'dash', Numpad0: 'super', Enter: 'start', NumpadEnter: 'start' },
-    sys: { Enter: 'start', NumpadEnter: 'start', Escape: 'back', KeyP: 'pause', KeyM: 'mute' },
+    sys: { Enter: 'start', NumpadEnter: 'start', Escape: 'back', KeyP: 'pause', KeyM: 'mute', KeyQ: 'quality' },
   };
   function onKey(e, down) {
     let hit = false;
@@ -93,21 +78,20 @@
       const up = () => { setIn(id, k, false); b.classList.remove('on'); };
       b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
     });
-    view.addEventListener('pointerdown', e => {
-      SFX.init();
-      if (netRole === 'guest') { netSend({ t: 'in', slot: 'touch', k: { fire: true } }); netSend({ t: 'in', slot: 'touch', k: { fire: false } }); return; }
-      const r = view.getBoundingClientRect();
-      const gx = ((e.clientX - r.left) * dpr - offX) / scale, gy = ((e.clientY - r.top) * dpr - offY) / scale;
-      const touchy = e.pointerType === 'touch' || isTouch;
-      if (state === 'select') {
-        const own = lobby.findIndex(l => l.slot === 'touch');
-        if (touchy && own < 0) lobbyJoin('touch');
-        else if (own >= 0 && cardAt(gx, gy) === own) { lobby[own].ready = !lobby[own].ready; SFX.select(); }
-        else if (!touchy && lobby.length === 0) lobbyJoin('kbB');
-      } else if (state === 'play') { if (paused) paused = false; }
-      else inp('sys').p.start = true;
-    });
   })();
+
+  function tap(card, touchy) {
+    SFX.init();
+    if (netRole === 'guest') { netSend({ t: 'in', slot: 'touch', k: { fire: true } }); netSend({ t: 'in', slot: 'touch', k: { fire: false } }); return; }
+    touchy = touchy || isTouch;
+    if (state === 'select') {
+      const own = lobby.findIndex(l => l.slot === 'touch');
+      if (touchy && own < 0) lobbyJoin('touch');
+      else if (own >= 0 && card === own) { lobby[own].ready = !lobby[own].ready; SFX.select(); }
+      else if (!touchy && lobby.length === 0) lobbyJoin('kbB');
+    } else if (state === 'play') { if (paused) paused = false; }
+    else inp('sys').p.start = true;
+  }
 
   // ---------- run state ----------
   let state = 'title', stateT = 0, paused = false, frame = 0, titleX = 0, lobby = [], lobbyT = 0;
@@ -115,7 +99,6 @@
   try { hiscore = +localStorage.getItem('baolua_hi') || 0; } catch (e) { }
   const teamScore = () => (G ? G.players.reduce((s, p) => s + p.score, 0) : 0);
   const saveHi = () => { const s = teamScore(); if (s > hiscore) { hiscore = s; try { localStorage.setItem('baolua_hi', String(s)); } catch (e) { } } };
-  const titleBg = buildBackdrop('harbor'), titleTiles = buildTiles('harbor');
 
   function makeRecord(slot, ci, num) { return { slot, ci, num, lives: 3, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
   function newRun(entries) { G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i)), stage: 0, storm: 0 }; }
@@ -137,7 +120,7 @@
     ].sort((a, b) => a.col - b.col);
     const last = d.ground[d.ground.length - 1];
     return {
-      i, d, cols, map, theme: d.theme, bg: buildBackdrop(d.theme), tiles: buildTiles(d.theme),
+      i, d, cols, map, theme: d.theme,
       camX: 0, arenaX: (cols - 30) * T, groundY: last[2] * T,
       spawns, spawnIdx: 0, enemies: [], pB: [], eB: [], parts: [], amb: [], items: [], texts: [], rings: [], trail: [], bolts: [],
       boss: null, bossState: 'none', warnT: 0, soldierT: 200, shake: 0, introT: 170, t: 0, players: [], endT: 0, stormT: 0, flashT: 0,
@@ -231,7 +214,7 @@
       const a = Math.random() * Math.PI * 2, s = Math.random() * 2.4 * size;
       particle(x, y, Math.cos(a) * s, Math.sin(a) * s - 0.4, 18 + Math.random() * 18, cols[Math.floor(Math.random() * cols.length)], Math.random() < 0.3 ? 3 : 2, 0.03);
     }
-    Lv.rings.push({ x, y, life: 14, max: 14, r: 10 * size });
+    Lv.rings.push({ x, y, life: 36, max: 36, r: 10 * size });
     Lv.shake = Math.max(Lv.shake, 2 * size);
     if (!quiet) SFX.boom();
   }
@@ -834,6 +817,7 @@
     pollPads();
     const sys = inp('sys').p;
     if (sys.mute) SFX.toggle();
+    if (sys.quality) VIEW3D.setQuality(VIEW3D.quality === 'high' ? 'low' : 'high');
     switch (state) {
       case 'title':
         titleX += 0.6;
@@ -872,335 +856,6 @@
         break;
     }
     for (const id in inputs) inputs[id].p = {};
-  }
-
-  // ---------- rendering: world ----------
-  function drawBackdrop(bg, camX) {
-    g.drawImage(bg.L0, 0, 0);
-    for (const [layer, f] of bg.layers) {
-      const off = -Math.round((camX * f) % layer.width);
-      g.drawImage(layer, off, 0); g.drawImage(layer, off + layer.width, 0);
-    }
-  }
-
-  function drawHazard(c, t) {
-    const x = c * T;
-    if (Lv.theme === 'harbor') {
-      R(g, x, 246, T, 26, '#14235a'); R(g, x, 254, T, 18, '#0e1840');
-      for (let k = 0; k < 16; k += 4) R(g, x + k, 247 + Math.round(Math.sin((x + k) * 0.15 + t * 0.08) * 1.5), 4, 2, '#5f86e0');
-    } else if (Lv.theme === 'forge') {
-      R(g, x, 246, T, 26, '#e2461b'); R(g, x, 252, T, 20, '#b52d12');
-      for (let k = 0; k < 16; k += 4) R(g, x + k, 245 + Math.round(Math.sin((x + k) * 0.2 + t * 0.06) * 1.5), 4, 2, '#ffcf4a');
-      g.globalAlpha = 0.18; R(g, x, 214, T, 32, '#ff7a2a'); g.globalAlpha = 1;
-    }
-  }
-
-  function heroPose(p, t) {
-    return { x: p.x + p.w / 2, y: p.y + p.h, facing: p.facing, aimX: p.aimX, aimY: p.aimY, crouch: p.crouch, air: !p.onGround, anim: p.anim, flash: p.flash, t };
-  }
-
-  function renderWorld() {
-    const L = Lv, t = L.t, sh = L.shake;
-    const ox = sh ? (Math.random() - 0.5) * sh : 0, oy = sh ? (Math.random() - 0.5) * sh : 0;
-    drawBackdrop(L.bg, L.camX);
-    g.save();
-    g.translate(Math.round(-L.camX + ox), Math.round(oy));
-    const c0 = Math.floor(L.camX / T) - 1, c1 = c0 + W / T + 3;
-    for (let c = c0; c <= c1; c++) {
-      if (c < 0 || c >= L.cols) continue;
-      if (tileAt(c, ROWS - 1) !== 1) drawHazard(c, t);
-      for (let r = 0; r < ROWS; r++) {
-        const v = L.map[r][c];
-        if (v === 1) {
-          g.drawImage(tileAt(c, r - 1) === 1 ? L.tiles.inner : L.tiles.top, c * T, r * T);
-          if (tileAt(c - 1, r) !== 1) R(g, c * T, r * T, 2, T, L.tiles.edge);
-          if (tileAt(c + 1, r) !== 1) R(g, c * T + T - 2, r * T, 2, T, L.tiles.edge);
-        } else if (v === 2) g.drawImage(L.tiles.plat, c * T, r * T);
-      }
-    }
-    const b = L.boss;
-    if (b && b.type === 'core') drawCore(g, b, t);
-
-    for (const it of L.items) drawPower(g, it, t);
-    for (const e of L.enemies) {
-      if (e.type === 'soldier') drawSoldier(g, e, t);
-      else if (e.type === 'turret') drawTurret(g, e, t);
-      else if (e.type === 'drone') drawDrone(g, e, t);
-      else if (e.type === 'hopper') drawHopper(g, e, t);
-      else if (e.type === 'capsule') drawCapsule(g, e, t);
-    }
-    if (b && b.type === 'crab') drawCrab(g, b, t);
-    if (b && b.type === 'serpent') drawSerpent(g, b, t);
-    if (b && b.type === 'serpent' && b.mode === 'windup' && t % 12 < 7) {
-      const ex = L.arenaX + W - 22, ey = L.groundY - 22;
-      P(g, [ex, ey - 8, ex - 10, ey, ex, ey + 8], BLOOD); P(g, [ex - 12, ey - 8, ex - 22, ey, ex - 12, ey + 8], BLOOD);
-    }
-
-    for (const tr of L.trail) { g.globalAlpha = tr.life / 12 * 0.45; drawHero(g, tr.ci, { x: tr.x, y: tr.y, facing: tr.facing, aimX: tr.aimX, aimY: tr.aimY, crouch: false, air: true, anim: 0, flash: 0, t }); }
-    g.globalAlpha = 1;
-    for (const p of L.players) {
-      if (p.ghost) {
-        g.globalAlpha = 0.4 + Math.sin(t * 0.15) * 0.1;
-        drawHero(g, p.ci, { x: p.gx, y: p.gy + 11, facing: 1, aimX: 1, aimY: 0, crouch: false, air: true, anim: 0, flash: 0, t });
-        g.globalAlpha = 1;
-        g.strokeStyle = '#3a3448'; g.lineWidth = 2; g.beginPath(); g.arc(p.gx, p.gy, 16, 0, Math.PI * 2); g.stroke();
-        if (p.reviveT > 0) { g.strokeStyle = PCOL[p.pr.num]; g.beginPath(); g.arc(p.gx, p.gy, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p.reviveT / REVIVE); g.stroke(); }
-        continue;
-      }
-      if (p.dead || (p.invuln > 0 && Math.floor(t / 3) % 2)) continue;
-      drawHero(g, p.ci, heroPose(p, t));
-      if (G.players.length > 1) R(g, p.x + p.w / 2 - 2, p.y - 6 + (p.crouch ? 0 : 0), 4, 2, PCOL[p.pr.num]);
-    }
-    for (const p of L.players) if (p.drone && !p.dead && !p.ghost) drawBuddyDrone(g, p.drone, t);
-
-    for (const q of L.pB) {
-      if (q.kind === 'L') { Ln(g, q.x - q.vx * 2.6, q.y - q.vy * 2.6, q.x, q.y, 3, JADE); Ln(g, q.x - q.vx * 2.2, q.y - q.vy * 2.2, q.x, q.y, 1, '#e9fffa'); }
-      else if (q.kind === 'H') { R(g, q.x - 2, q.y - 2, 4, 4, '#cfd3e6'); R(g, q.x - 1 - q.vx, q.y - 1 - q.vy, 2, 2, '#ff8a3d'); }
-      else if (q.kind === 'S') { R(g, q.x - 2, q.y - 2, 4, 4, EMBER); R(g, q.x - 1, q.y - 1, 2, 2, '#ffe0c2'); }
-      else if (q.kind === 'D') { R(g, q.x - 1, q.y - 1, 3, 3, '#69d2ff'); }
-      else { R(g, q.x - 2, q.y - 2, 4, 4, VOLT); R(g, q.x - 1, q.y - 1, 2, 2, '#fffbe6'); }
-    }
-    for (const q of L.eB) {
-      if (q.kind === 'fire') { E(g, q.x, q.y, q.r, q.r, '#ff7a2a'); E(g, q.x, q.y, q.r - 2, q.r - 2, t % 6 < 3 ? VOLT : '#fff3c4'); }
-      else if (q.kind === 'wave') { g.globalAlpha = 0.85; E(g, q.x, q.y, 6, 5, VOLT); E(g, q.x, q.y + 1, 4, 3, '#fff6c2'); g.globalAlpha = 1; }
-      else if (q.kind === 'bomb') { E(g, q.x, q.y, 4, 4, '#3a3448'); R(g, q.x - 1, q.y - 1, 2, 2, t % 10 < 5 ? BLOOD : VOLT); }
-      else if (q.kind === 'orb') { E(g, q.x, q.y, 3.5, 3.5, '#ff5a1f'); E(g, q.x, q.y, 1.8, 1.8, '#fff3c4'); }
-      else { E(g, q.x, q.y, 3, 3, BLOOD); E(g, q.x, q.y, 1.5, 1.5, '#ffd0d6'); }
-    }
-    for (const q of L.parts) { g.globalAlpha = Math.min(1, q.life / q.max * 1.5); R(g, q.x, q.y, q.s, q.s, q.c); }
-    g.globalAlpha = 1;
-    for (const r of L.rings) {
-      const k = 1 - r.life / r.max;
-      if (k < 0.3) E(g, r.x, r.y, r.r * 0.6, r.r * 0.6, '#fff6c2');
-      g.globalAlpha = r.life / r.max; g.strokeStyle = VOLT; g.lineWidth = 2; g.beginPath(); g.arc(r.x, r.y, r.r * (0.4 + k), 0, Math.PI * 2); g.stroke();
-    }
-    for (const bo of L.bolts) {
-      g.globalAlpha = Math.min(1, bo.life / 8);
-      for (const [w, c] of [[4, EMBER], [2, '#fff6c2']]) {
-        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(bo.pts[0], bo.pts[1]);
-        for (let i = 2; i < bo.pts.length; i += 2) g.lineTo(bo.pts[i], bo.pts[i + 1]);
-        g.stroke();
-      }
-    }
-    g.globalAlpha = 1;
-    g.restore();
-
-    if (L.bg.front) {
-      const f = L.bg.front, off = -Math.round((L.camX * 1.1 + t * 0.3) % W);
-      g.drawImage(f, off, H - 40); g.drawImage(f, off + W, H - 40);
-    }
-    for (const a of L.amb) {
-      if (a.k === 'rain') { g.globalAlpha = 0.45; R(g, a.x, a.y, 1, 5, '#8fa3ff'); }
-      else if (a.k === 'ember') { g.globalAlpha = Math.min(1, a.life / 80); R(g, a.x, a.y, 1, 1, a.life % 20 < 10 ? '#ff8a3d' : VOLT); }
-      else { g.globalAlpha = 0.3; R(g, a.x, a.y, a.len, 1, '#ffffff'); }
-    }
-    g.globalAlpha = 1;
-    if (L.stormT > 0) { g.globalAlpha = 0.12; R(g, 0, 0, W, H, '#ff5a1f'); g.globalAlpha = 1; }
-    if (L.flashT > 0) { g.globalAlpha = L.flashT / 12 * 0.7; R(g, 0, 0, W, H, '#fff6c2'); g.globalAlpha = 1; }
-    if (L.bossState === 'warn' && L.warnT % 30 < 18) { g.globalAlpha = 0.18; R(g, 0, 0, W, H, BLOOD); g.globalAlpha = 1; }
-  }
-
-  // ---------- rendering: crisp text layer ----------
-  const sx = x => offX + x * scale, sy = y => offY + y * scale;
-  function txt(s, x, y, size, color, align = 'left', o = {}) {
-    vctx.font = `${o.display ? 400 : (o.weight || 700)} ${Math.round(size * scale)}px ${o.display ? FONT_D : FONT_B}`;
-    vctx.textAlign = align; vctx.textBaseline = 'middle';
-    if (o.ls) vctx.letterSpacing = `${o.ls * scale}px`;
-    if (o.shadow) { vctx.fillStyle = o.shadow; vctx.fillText(s, sx(x) + (o.sh || 1) * scale, sy(y) + (o.sh || 1) * scale); }
-    vctx.fillStyle = color; vctx.fillText(s, sx(x), sy(y));
-    if (o.ls) vctx.letterSpacing = '0px';
-  }
-  function box(x, y, w, h, c, a = 1) { vctx.globalAlpha = a; vctx.fillStyle = c; vctx.fillRect(sx(x), sy(y), w * scale, h * scale); vctx.globalAlpha = 1; }
-  function wrap(s, maxW, size) {
-    vctx.font = `500 ${Math.round(size * scale)}px ${FONT_B}`;
-    const out = []; let line = '';
-    for (const w of s.split(' ')) { const tst = line ? line + ' ' + w : w; if (vctx.measureText(tst).width / scale > maxW && line) { out.push(line); line = w; } else line = tst; }
-    if (line) out.push(line);
-    return out;
-  }
-
-  function drawHUD() {
-    const n = G.players.length, pw = 112;
-    G.players.forEach((pr, i) => {
-      const x = 6 + i * (pw + 5), ch = CHARS[pr.ci], p = Lv.players[i], col = PCOL[pr.num];
-      box(x, 6, pw, 28, '#07060d', 0.6); box(x, 6, 2, 28, col);
-      txt('P' + (pr.num + 1), x + 6, 13, 6, col, 'left', { ls: 0.5 });
-      txt(ch.name, x + 20, 13, 8, ch.pal.main, 'left', { display: true });
-      txt(String(pr.score).padStart(6, '0'), x + pw - 4, 13, 7, INK, 'right', { ls: 0.3 });
-      if (p && p.ghost) {
-        txt(p.reviveT > 0 ? 'ĐANG HỒI SINH…' : 'ĐỨNG CẠNH ĐỂ CỨU', x + 6, 26, 5.5, DIM, 'left', { ls: 0.3 });
-        return;
-      }
-      for (let k = 0; k < Math.min(pr.lives, 6); k++) box(x + 6 + k * 6, 22, 4, 7, ch.pal.light);
-      let wx = x + 6 + Math.min(pr.lives, 6) * 6 + 3;
-      if (ch.hp > 1 && p && !p.dead) { for (let k = 0; k < ch.hp; k++) box(wx + k * 7, 24, 5, 3, k < p.hp ? VOLT : '#3a3448'); wx += ch.hp * 7 + 2; }
-      txt((pr.weapon === 'P' ? 'XUNG KÍCH' : WEAPON_NAME[pr.weapon]) + (pr.rapid ? '+' : ''), wx, 26, 5.5, pr.weapon === 'P' ? DIM : JADE, 'left', { ls: 0.3 });
-    });
-    if (n < 4 && Lv.t % 240 < 120 && state === 'play') txt('Người chơi mới: bấm nút BẮN để tham gia', 6 + n * (pw + 5) + 4, 20, 5.5, DIM, 'left', { weight: 500 });
-
-    // storm meter + team score
-    const full = G.storm >= 100, mx = W / 2 - 60;
-    box(mx - 2, 252, 124, 12, '#07060d', 0.6);
-    box(mx + 44, 255, 74, 6, '#2a2440');
-    box(mx + 44, 255, 74 * G.storm / 100, 6, full ? (frame % 20 < 10 ? VOLT : EMBER) : EMBER);
-    txt('BÃO LỬA', mx + 2, 258, 6, full ? VOLT : DIM, 'left', { display: true });
-    if (full) txt('R · L · Y · nút BÃO', W / 2, 245, 5.5, VOLT, 'center', { ls: 0.5 });
-    txt('ĐỘI ' + String(teamScore()).padStart(7, '0'), W - 8, 258, 7, INK, 'right', { ls: 0.5 });
-    txt('KỶ LỤC ' + String(Math.max(hiscore, teamScore())).padStart(7, '0'), 8, 258, 5.5, DIM, 'left', { ls: 0.5 });
-
-    const b = Lv.boss;
-    if (b && Lv.bossState === 'fight') {
-      const bw = 170, bx = W / 2 - bw / 2;
-      txt(b.name, W / 2, 43, 7, VOLT, 'center', { ls: 1, shadow: '#07060d' });
-      box(bx, 49, bw, 6, '#07060d', 0.8);
-      box(bx + 1, 50, (bw - 2) * (b.hp / b.maxHp), 4, b.hp < b.maxHp * 0.4 ? BLOOD : EMBER);
-    }
-    for (const t of Lv.texts) { vctx.globalAlpha = Math.min(1, t.life / 20); txt(t.s, t.x - Lv.camX, t.y, 7, t.c, 'center', { shadow: '#07060d' }); }
-    vctx.globalAlpha = 1;
-    if (n > 1) for (const p of Lv.players) if (!p.dead && !p.ghost) txt('P' + (p.pr.num + 1), p.x + p.w / 2 - Lv.camX, p.y - 11, 5.5, PCOL[p.pr.num], 'center', { shadow: '#07060d' });
-
-    if (Lv.introT > 0 && state === 'play') {
-      const a = Math.min(1, Lv.introT / 30, (170 - Lv.introT) / 20);
-      box(0, 100, W, 64, '#07060d', 0.7 * a);
-      vctx.globalAlpha = a;
-      txt('MÀN ' + (G.stage + 1), W / 2, 114, 8, EMBER, 'center', { ls: 3 });
-      txt(Lv.d.name, W / 2, 134, 22, INK, 'center', { display: true, shadow: '#5a1a2a', sh: 2 });
-      txt(Lv.d.sub, W / 2, 153, 7.5, DIM, 'center', { weight: 500 });
-      vctx.globalAlpha = 1;
-    }
-    if (Lv.bossState === 'warn' && Lv.warnT % 30 < 20) {
-      box(0, 116, W, 36, '#07060d', 0.6);
-      txt('CẢNH BÁO', W / 2, 134, 20, BLOOD, 'center', { display: true, ls: 4 });
-    }
-  }
-
-  function overlay(a = 0.65) { box(0, 0, W, H, '#07060d', a); }
-
-  function renderTitle() {
-    drawBackdrop(titleBg, titleX);
-    for (let x = 0; x < W; x += T) { g.drawImage(titleTiles.top, x, 224); g.drawImage(titleTiles.inner, x, 240); g.drawImage(titleTiles.inner, x, 256); }
-    [[150, 1], [240, 1], [330, -1]].forEach(([x, f], i) => {
-      g.save(); g.translate(x, 224); g.scale(2, 2);
-      drawHero(g, i, { x: 0, y: 0, facing: f, aimX: 1, aimY: i === 1 ? -1 : 0, crouch: false, air: false, anim: 0, flash: (frame + i * 20) % 50 < 4 ? 4 : 0, t: frame });
-      g.restore();
-    });
-  }
-
-  function cardRect(i) { return { x: 10 + i * 117, y: 46, w: 109, h: 196 }; }
-  function cardAt(x, y) { for (let i = 0; i < 4; i++) { const r = cardRect(i); if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return i; } return -1; }
-
-  function renderSelectBuf() {
-    drawBackdrop(titleBg, titleX);
-    g.globalAlpha = 0.6; R(g, 0, 0, W, H, '#07060d'); g.globalAlpha = 1;
-    for (let i = 0; i < 4; i++) {
-      const r = cardRect(i), l = lobby[i];
-      if (!l) {
-        g.globalAlpha = 0.5;
-        for (let x = r.x; x < r.x + r.w; x += 6) { R(g, x, r.y, 3, 1, '#5a5478'); R(g, x, r.y + r.h - 1, 3, 1, '#5a5478'); }
-        for (let y = r.y; y < r.y + r.h; y += 6) { R(g, r.x, y, 1, 3, '#5a5478'); R(g, r.x + r.w - 1, y, 1, 3, '#5a5478'); }
-        g.globalAlpha = 1;
-        continue;
-      }
-      const c = CHARS[l.ci].pal, col = PCOL[i], lift = l.ready ? -4 : 0;
-      R(g, r.x, r.y + lift, r.w, r.h, l.ready ? '#1d1838' : '#141028');
-      R(g, r.x, r.y + lift, r.w, 2, col); R(g, r.x, r.y + r.h - 2 + lift, r.w, 2, col); R(g, r.x, r.y + lift, 2, r.h, col); R(g, r.x + r.w - 2, r.y + lift, 2, r.h, col);
-      g.globalAlpha = 0.3; E(g, r.x + r.w / 2, r.y + 100 + lift, 26, 4, '#000000'); g.globalAlpha = 1;
-      g.save(); g.translate(r.x + r.w / 2, r.y + 100 + lift); g.scale(3, 3);
-      drawHero(g, l.ci, { x: 0, y: 0, facing: 1, aimX: 1, aimY: l.ready ? -1 : 0, crouch: false, air: false, anim: l.ready ? 0 : frame, flash: l.ready && frame % 24 < 4 ? 4 : 0, t: frame });
-      g.restore();
-      if (!l.ready) { P(g, [r.x + 10, r.y + 72, r.x + 16, r.y + 66, r.x + 16, r.y + 78], c.main); P(g, [r.x + r.w - 10, r.y + 72, r.x + r.w - 16, r.y + 66, r.x + r.w - 16, r.y + 78], c.main); }
-    }
-  }
-  function renderSelectText() {
-    txt('CHỌN CHIẾN BINH', W / 2, 24, 13, INK, 'center', { display: true, shadow: '#5a1a2a', sh: 1.5 });
-    txt('1 đến 4 người cùng chơi trên một máy', W / 2, 37, 6.5, DIM, 'center', { weight: 500 });
-    const labels = ['TỐC ĐỘ', 'GIÁP', 'KỸ THUẬT'];
-    for (let i = 0; i < 4; i++) {
-      const r = cardRect(i), l = lobby[i], cx = r.x + r.w / 2;
-      if (!l) {
-        txt('P' + (i + 1), cx, r.y + 60, 16, '#3a3456', 'center', { display: true });
-        txt('THAM GIA', cx, r.y + 88, 8, INK, 'center', { ls: 1.5 });
-        const lines = isTouch ? ['Chạm màn hình'] : ['Bàn phím 1: F', 'Bàn phím 2: ENTER', 'Tay cầm: A hoặc X'];
-        lines.forEach((ln, k) => txt(ln, cx, r.y + 106 + k * 11, 6, DIM, 'center', { weight: 500 }));
-        continue;
-      }
-      const ch = CHARS[l.ci], lift = l.ready ? -4 : 0;
-      txt('P' + (i + 1) + ' · ' + slotName(l.slot), cx, r.y + 10 + lift, 5.5, PCOL[i], 'center', { ls: 0.6 });
-      txt(ch.name, cx, r.y + 114 + lift, 12, ch.pal.main, 'center', { display: true });
-      txt(ch.title.toUpperCase(), cx, r.y + 126 + lift, 6, DIM, 'center', { ls: 0.6 });
-      wrap(ch.desc, r.w - 14, 6).forEach((ln, k) => txt(ln, cx, r.y + 138 + k * 8.5 + lift, 6, INK, 'center', { weight: 500 }));
-      labels.forEach((lb, k) => {
-        const yy = r.y + 162 + k * 7.5 + lift;
-        txt(lb, r.x + 8, yy, 5, DIM, 'left', { ls: 0.3 });
-        for (let s = 0; s < 5; s++) box(r.x + 48 + s * 11, yy - 2, 9, 4, s < ch.stats[k] ? ch.pal.main : '#2a2440');
-      });
-      if (l.ready) { box(r.x + 2, r.y + r.h - 16 + lift, r.w - 4, 14, PCOL[i], 0.9); txt('SẴN SÀNG', cx, r.y + r.h - 9 + lift, 7, '#07060d', 'center', { display: true }); }
-      else txt('◀ ▶ đổi · BẮN chọn', cx, r.y + r.h - 9, 5.5, DIM, 'center', { weight: 500 });
-    }
-    if (lobby.length && lobby.every(l => l.ready)) txt('VÀO TRẬN!', W / 2, 256, 10, VOLT, 'center', { display: true });
-    else txt(isTouch ? 'Chạm thẻ của bạn để sẵn sàng' : 'LƯỚT để rời / huỷ sẵn sàng   ·   ESC quay lại', W / 2, 256, 6.5, DIM, 'center', { weight: 500 });
-  }
-
-  function overlayGradient() {
-    const gr = vctx.createLinearGradient(0, offY, 0, offY + H * scale);
-    gr.addColorStop(0, 'rgba(7,6,13,0.78)'); gr.addColorStop(0.6, 'rgba(7,6,13,0.3)'); gr.addColorStop(1, 'rgba(7,6,13,0)');
-    vctx.fillStyle = gr; vctx.fillRect(offX, offY, W * scale, H * scale);
-  }
-
-  function render() {
-    vctx.setTransform(1, 0, 0, 1, 0, 0);
-    vctx.fillStyle = '#07060d'; vctx.fillRect(0, 0, view.width, view.height);
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    if (state === 'select') renderSelectBuf();
-    else if (state === 'title' || state === 'victory' || !Lv || !G) renderTitle();
-    else renderWorld();
-
-    vctx.imageSmoothingEnabled = false;
-    vctx.drawImage(buf, offX, offY, W * scale, H * scale);
-
-    if (state === 'title') {
-      overlayGradient();
-      const bob = Math.sin(frame * 0.05) * 2;
-      txt('BIỆT ĐỘI SẤM SÉT', W / 2, 40, 8, VOLT, 'center', { ls: 4 });
-      txt('BÃO LỬA', W / 2, 74 + bob, 46, EMBER, 'center', { display: true, shadow: '#3a0c1e', sh: 3 });
-      txt('Ba chiến binh, ba vùng đất. Tối đa bốn người cùng chơi.', W / 2, 106, 8, INK, 'center', { weight: 500 });
-      if (frame % 60 < 40) txt(isTouch ? 'CHẠM ĐỂ BẮT ĐẦU' : 'NHẤN ENTER HOẶC F ĐỂ BẮT ĐẦU', W / 2, 132, 9, INK, 'center', { ls: 2 });
-      if (hiscore) txt('KỶ LỤC ĐỘI ' + String(hiscore).padStart(7, '0'), W / 2, 148, 6.5, DIM, 'center', { ls: 1 });
-      if (!isTouch) {
-        txt('BÀN PHÍM 1   W A S D di chuyển/ngắm · F bắn · G nhảy · H lướt · R Bão Lửa', W / 2, 240, 6, DIM, 'center', { weight: 500 });
-        txt('BÀN PHÍM 2   ← ↑ → ↓ · , bắn · . nhảy · / lướt · L Bão Lửa (hoặc Numpad 1 2 3 0)', W / 2, 250, 6, DIM, 'center', { weight: 500 });
-        txt('TAY CẦM   cần/D-pad · X bắn · A nhảy · B lướt · Y Bão Lửa · START tạm dừng', W / 2, 260, 6, DIM, 'center', { weight: 500 });
-      }
-    } else if (state === 'select') renderSelectText();
-    else if (!G || (state !== 'victory' && !Lv)) { /* guest waiting for the first snapshot */ }
-    else if (state === 'victory') {
-      overlay(0.55);
-      txt('CHIẾN THẮNG', W / 2, 62, 30, VOLT, 'center', { display: true, shadow: '#3a0c1e', sh: 2.5 });
-      txt('Cua Thép, Lò Rèn và Long Hạm đều đã sụp đổ.', W / 2, 92, 8, INK, 'center', { weight: 500 });
-      G.players.forEach((pr, i) => txt('P' + (pr.num + 1) + ' ' + CHARS[pr.ci].name + '   ' + pr.score, W / 2, 112 + i * 11, 7, PCOL[pr.num], 'center', { ls: 0.5 }));
-      txt('ĐỘI ' + String(teamScore()).padStart(7, '0'), W / 2, 164, 12, INK, 'center', { display: true });
-      if (stateT > 90 && frame % 60 < 40) txt('ENTER để về màn hình chính', W / 2, 190, 7.5, DIM, 'center');
-    } else {
-      drawHUD();
-      if (state === 'clear') {
-        overlay(Math.min(0.6, stateT / 60));
-        txt('HOÀN THÀNH', W / 2, 90, 26, VOLT, 'center', { display: true, shadow: '#3a0c1e', sh: 2 });
-        txt('MÀN ' + (G.stage + 1) + ' · ' + Lv.d.name, W / 2, 116, 8, INK, 'center', { ls: 2 });
-        G.players.forEach((pr, i) => txt('P' + (pr.num + 1) + '  thưởng mạng +' + (pr.lives + 1) * 1000 + '   tổng ' + pr.score, W / 2, 134 + i * 10, 6.5, PCOL[pr.num], 'center'));
-        if (stateT > 60 && frame % 60 < 40) txt(G.stage + 1 < LEVELS.length ? 'BẮN hoặc ENTER để sang màn tiếp' : 'BẮN hoặc ENTER để xem kết thúc', W / 2, 186, 7.5, INK, 'center');
-      } else if (state === 'over') {
-        overlay(Math.min(0.7, stateT / 40));
-        txt('CẢ ĐỘI ĐÃ NGÃ', W / 2, 100, 24, BLOOD, 'center', { display: true, shadow: '#07060d', sh: 2 });
-        txt('Điểm đội ' + teamScore() + ' · Màn ' + (G.stage + 1), W / 2, 124, 8, INK, 'center');
-        if (stateT > 40) txt(isTouch ? 'Chạm để chơi lại màn này' : 'BẮN hoặc ENTER chơi lại màn này  ·  ESC về màn hình chính', W / 2, 148, 7.5, DIM, 'center');
-      } else if (paused) {
-        overlay(0.55);
-        txt('TẠM DỪNG', W / 2, 120, 22, INK, 'center', { display: true });
-        txt(isTouch ? 'Chạm màn hình để chơi tiếp' : 'P, ESC hoặc START để chơi tiếp', W / 2, 144, 7.5, DIM, 'center');
-      }
-    }
-    if (SFX.muted) txt('ÂM THANH TẮT', W - 8, state === 'play' ? 244 : H - 8, 6, DIM, 'right', { ls: 1 });
-    vctx.fillStyle = scan; vctx.fillRect(offX, offY, W * scale, H * scale);
   }
 
   // ---------- LAN play ----------
@@ -1317,6 +972,7 @@
     if (!netInfo) return;
     const hide = (state === 'play' || state === 'clear') && !paused;
     if (lanEl.hidden !== hide) lanEl.hidden = hide;
+    lanEl.classList.toggle('compact', !netRole && state === 'title');
   }
   lanEl.addEventListener('click', e => {
     const id = e.target && e.target.id;
@@ -1329,15 +985,21 @@
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
+  const V = { isTouch, slotName };
+  UI.init(document.getElementById('ui'), tap);
   function loop(now) {
-    acc += Math.min(100, now - last); last = now;
+    const dtMs = Math.min(100, now - last);
+    acc += dtMs; last = now;
     while (acc >= STEP) {
       if (netRole === 'guest') stepGuest();
       else { step(); if (netRole === 'host' && ++hostTick % 2 === 0) sendSnap(); }
       acc -= STEP;
     }
     lanVisibility();
-    render();
+    V.state = state; V.stateT = stateT; V.frame = frame; V.paused = paused; V.G = G; V.Lv = Lv; V.lobby = lobby; V.lobbyT = lobbyT;
+    V.hiscore = hiscore; V.team = teamScore(); V.netRole = netRole;
+    VIEW3D.render(V, dtMs);
+    UI.render(V);
     requestAnimationFrame(loop);
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netRole) paused = true; });
@@ -1348,7 +1010,7 @@
   if (location.hash === '#debug') window.__baolua = {
     get G() { return G; }, get Lv() { return Lv; }, inputs, setIn,
     start(cis, st) { newRun(cis.map((ci, i) => ({ slot: ['kbA', 'kbB', 'pad0', 'pad1'][i], ci }))); startStage(st); },
-    tick(n) { for (let i = 0; i < n; i++) step(); render(); },
+    tick(n) { for (let i = 0; i < n; i++) step(); },
   };
   function boot(data) {
     if (data && data.playing && data.G && data.G.players) { G = data.G; startStage(G.stage); }
