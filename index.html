@@ -217,7 +217,7 @@
   #lan { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; max-width: min(300px, calc(100% - 32px)); display: grid; gap: 6px; padding: 12px 14px; background: var(--panel-solid); border: 1.5px solid var(--glass-edge); border-left: 3px solid var(--ember); font: 500 13px/1.45 var(--body); color: var(--ink); z-index: 5; }
   #lan[hidden] { display: none; }
   #lan.compact { padding: 8px 12px; }
-  #lan.compact p, #lan.compact .row { display: none; }
+  #lan.compact p, #lan.compact .row, #lan.compact input { display: none; }
   #lan.compact b::after { content: ' · tạo hoặc vào phòng ở bước chọn nhân vật'; font: 600 12px/1.2 var(--body); letter-spacing: 0; color: var(--dim); }
   #lan b { font: 400 13px/1.2 var(--display); letter-spacing: 0.06em; color: var(--ember); }
   #lan p { margin: 0; color: var(--dim); }
@@ -225,6 +225,8 @@
   #lan .err { color: var(--blood); }
   #lan .row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
   #lan button { font: 700 12px/1 var(--body); letter-spacing: 0.06em; padding: 9px 12px; border: 1.5px solid var(--ember); background: var(--ember); color: var(--void); cursor: pointer; }
+  #lan input { font: 700 14px/1 var(--body); letter-spacing: 0.2em; text-transform: uppercase; padding: 8px 10px; width: 100%; box-sizing: border-box; background: transparent; color: var(--ink); border: 1.5px solid var(--glass-edge); }
+  #lan input:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
   #lan button.ghost { background: transparent; color: var(--ink); border-color: var(--glass-edge); }
   #lan button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   #boot { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: var(--void); font: 600 15px/1.5 var(--body); color: var(--dim); z-index: 10; padding-inline: 16px; }

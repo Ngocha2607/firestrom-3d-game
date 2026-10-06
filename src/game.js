@@ -46,6 +46,7 @@
   let splitKb = false;
   const startSlot = () => (splitKb ? 'kbB' : 'kb');
   function onKey(e, down) {
+    if (e.target && e.target.tagName === 'INPUT') return;   // typing a room code
     let hit = false;
     for (const maps of [splitKb ? KB_SPLIT : KB_SOLO, KB_SYS]) for (const id in maps) { const a = maps[id][e.code]; if (a) { setIn(id, a, down); hit = true; } }
     if (hit) { e.preventDefault(); if (down) SFX.init(); }
@@ -1499,9 +1500,21 @@
   const round1 = (k, v) => (typeof v === 'number' && !Number.isInteger(v) ? Math.round(v * 10) / 10 : v);
   function netSend(o) { if (netWs && netWs.readyState === 1) netWs.send(JSON.stringify(o)); }
 
+  // Online (Cloudflare): each room has a code, shared as ?room=CODE in the link. LAN (server.js): one room.
+  const ROOM_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const cleanRoom = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  let room = cleanRoom(new URLSearchParams(location.search).get('room'));
+  const roomLink = () => `${location.origin}${location.pathname}?room=${room}`;
   function lanStart(role) {
+    if (netInfo.online) {
+      const typed = cleanRoom((document.getElementById('lanRoom') || {}).value);
+      if (role === 'host') room = typed.length >= 4 ? typed : Array.from({ length: 4 }, () => ROOM_CHARS[Math.random() * ROOM_CHARS.length | 0]).join('');
+      else if (typed.length >= 4) room = typed;
+      else { netStatus = 'error'; netError = 'Nhập mã phòng (4 ký tự) do chủ phòng gửi.'; lanUpdate(); return; }
+      history.replaceState(null, '', roomLink());
+    }
     netStatus = 'connecting'; netError = ''; lanUpdate();
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws${netInfo.online ? '?room=' + room : ''}`);
     netWs = ws;
     ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', role }));
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } onNet(m); };
@@ -1591,6 +1604,7 @@
   let lanHtml = '';
   function lanUpdate() {
     if (!netInfo) { lanEl.hidden = true; return; }
+    if (netInfo.online) return onlineUpdate();
     const addr = netInfo.ips.length ? netInfo.ips.map(ip => `http://${ip}:${netInfo.port}`).join('<br>') : location.origin;
     let h;
     if (netRole === 'host') h = `<b>CHỦ PHÒNG</b><p>${netGuests ? netGuests + ' máy khác đã vào phòng.' : 'Chưa có máy nào vào.'} Bạn bè cùng Wi-Fi mở:</p><p class="addr">${addr}</p><p>Máy này chạy trận đấu, hãy để cửa sổ luôn mở.</p>`;
@@ -1604,6 +1618,21 @@
     if (h !== lanHtml) { lanHtml = h; lanEl.innerHTML = h; }
     lanVisibility();
   }
+  function onlineUpdate() {
+    let h;
+    if (netRole === 'host') h = `<b>CHỦ PHÒNG · ${room}</b><p>${netGuests ? netGuests + ' máy khác đã vào phòng.' : 'Chưa có máy nào vào.'} Gửi link này cho bạn bè:</p><p class="addr">${roomLink()}</p>`
+      + `<div class="row"><button id="lanCopy" type="button" class="ghost">Sao chép link</button></div><p>Máy này chạy trận đấu, hãy để cửa sổ luôn mở.</p>`;
+    else if (netRole === 'guest') h = netStatus === 'waiting'
+      ? `<b>PHÒNG ${room}</b><p>Đang chờ chủ phòng bấm “Tạo phòng”…</p>`
+      : `<b>ĐÃ VÀO PHÒNG ${room}</b><p>Bấm phím Bắn (J, Z, Enter hoặc nút A/X trên tay cầm) để tham gia.</p>`;
+    else if (netStatus === 'connecting') h = `<b>CHƠI ONLINE</b><p>Đang kết nối phòng ${room}…</p>`;
+    else h = `<b>CHƠI ONLINE</b><p>${room ? 'Bạn được mời vào phòng <b>' + room + '</b>. Bấm “Vào phòng”.' : 'Tạo phòng rồi gửi link cho bạn bè, hoặc nhập mã phòng để vào.'}</p>`
+      + `<input id="lanRoom" type="text" maxlength="8" autocomplete="off" spellcheck="false" placeholder="MÃ PHÒNG" value="${room}" aria-label="Mã phòng">`
+      + (netStatus === 'error' ? `<p class="err">${netError}</p>` : netStatus === 'closed' ? `<p class="err">Mất kết nối với máy chủ.</p>` : '')
+      + `<div class="row"><button id="lanJoin" type="button"${room ? '' : ' class="ghost"'}>Vào phòng</button><button id="lanHost" type="button"${room ? ' class="ghost"' : ''}>Tạo phòng</button></div>`;
+    if (h !== lanHtml) { lanHtml = h; lanEl.innerHTML = h; }
+    lanVisibility();
+  }
   function lanVisibility() {
     if (!netInfo) return;
     const hide = (state === 'play' || state === 'clear') && !paused;
@@ -1613,10 +1642,12 @@
   lanEl.addEventListener('click', e => {
     const id = e.target && e.target.id;
     if (id === 'lanHost' || id === 'lanJoin') { e.target.blur(); SFX.init(); lanStart(id === 'lanHost' ? 'host' : 'guest'); }
+    if (id === 'lanCopy' && navigator.clipboard) navigator.clipboard.writeText(roomLink()).then(() => { e.target.textContent = 'Đã sao chép'; }, () => { });
   });
+  lanEl.addEventListener('keydown', e => { if (e.target.id === 'lanRoom' && e.key === 'Enter') { e.target.blur(); SFX.init(); lanStart('guest'); } });
   fetch('lan-info', { cache: 'no-store' })
     .then(r => (r.ok ? r.json() : null))
-    .then(info => { if (info && Array.isArray(info.ips)) { netInfo = info; lanUpdate(); } })
+    .then(info => { if (info && (info.online || Array.isArray(info.ips))) { netInfo = info; lanUpdate(); } })
     .catch(() => { });
 
   // ---------- loop ----------

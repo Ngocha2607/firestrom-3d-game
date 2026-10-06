@@ -23,6 +23,22 @@ Mở `http://localhost:8080`. Cũng có thể mở thẳng `index.html` bằng t
 Mỗi máy vẫn cắm thêm tay cầm hoặc chơi 2 người chung bàn phím được. Tổng tối đa 4 người.
 Chỉ cần Node.js 16 trở lên, không phải cài thêm thư viện nào. Lần đầu chạy, nếu Windows hỏi tường lửa, hãy chọn cho phép trên mạng **Private**.
 
+**Chơi online qua Internet (Cloudflare, miễn phí):**
+
+Bản online chạy trên Cloudflare Workers. Mỗi phòng là một Durable Object riêng, có mã phòng 4 ký tự.
+
+```bash
+npm install
+npx wrangler login      # chỉ cần làm một lần, đăng nhập tài khoản Cloudflare trên trình duyệt
+npm run deploy          # in ra địa chỉ dạng https://bao-lua.<tên-tài-khoản>.workers.dev
+```
+
+1. Một người mở địa chỉ đó, vào bước chọn nhân vật rồi bấm **Tạo phòng**. Bảng bên trái hiện mã phòng và link mời dạng `…/?room=ABCD`.
+2. Gửi link cho bạn bè. Người được mời mở link, bấm **Vào phòng** (hoặc nhập mã phòng vào ô rồi bấm **Vào phòng**).
+3. Máy tạo phòng chạy trận đấu, nên phải để cửa sổ đó luôn mở. Nếu người chơi ở xa nhau, máy ở xa sẽ thấy hơi trễ.
+
+Chạy thử bản Cloudflare trên máy: `npm run dev:cf` rồi mở `http://localhost:8787`.
+
 ## Điều khiển
 
 Mỗi người chơi dùng **bàn phím của riêng mình** (cả bàn phím điều khiển một nhân vật):
@@ -118,6 +134,9 @@ src/world3d.js     dựng hình: môi trường từng màn, shader nước/dung
 src/ui.js          giao diện DOM: tiêu đề, chọn nhân vật, HUD, banner, chữ nổi
 src/game.js        mô phỏng: vòng lặp, input, vật lý, AI, trùm, chơi đội, LAN
 server.js          máy chủ LAN: phục vụ file tĩnh và chuyển tiếp WebSocket
+worker/index.js    bản online trên Cloudflare: Worker phục vụ file tĩnh, mỗi phòng một Durable Object chuyển tiếp WebSocket
+worker/build.js    chép index.html + src/ vào dist/ trước khi deploy
+wrangler.toml      cấu hình Cloudflare
 ```
 
 Lõi mô phỏng (`game.js`) tách hẳn khỏi phần hiển thị: `world3d.js` và `ui.js` chỉ đọc trạng thái và vẽ.
