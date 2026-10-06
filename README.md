@@ -81,14 +81,20 @@ Chọn ở sảnh chọn nhân vật (bấm nút trên màn hình, hoặc ↑ / 
 
 Lõi của khoang tiếp tế nhấp nháy theo màu của món đồ bên trong, nhìn là biết trước sẽ rơi ra gì.
 
-**Màn chơi** (5)
-1. **Cảng Neon**: mưa đêm. Trùm **Cua Thép K-9** nhảy đập đất tạo sóng xung kích.
-2. **Lò Dung Nham**: mạch nham phun lửa. Trùm **Lò Rèn Vô Cực**, lõi chỉ trúng đạn khi đang mở.
-3. **Thành Trên Mây**: đảo bay, biển mây. Trùm **Long Hạm Thiên Vân** bay lượn rồi lao sát mặt đất.
-4. **Hầm Băng**: mặt băng trơn trượt, cột băng rơi từ trên xuống khi có người đi qua. Trùm **Voi Băng MK-II** phun mảnh băng
-   và húc ngang đấu trường; khi húc vào tường nó bị choáng và làm băng rơi. Né cú húc bằng cách đứng lên bục.
-5. **Trạm Nguyệt Cầu**: trọng lực thấp (nhảy cao và xa hơn hẳn). Trùm cuối **Mắt Thần Nguyệt** có 4 tấm giáp xoay quanh
-   chặn đạn, bắn tia laser có vạch cảnh báo trước, gọi drone và bắn vòng đạn.
+**Màn chơi** (7, gồm 3 kiểu chơi)
+1. **Cảng Neon** (cuộn ngang): mưa đêm. Trùm **Cua Thép K-9** nhảy đập đất tạo sóng xung kích.
+2. **Pháo Đài Ngầm** (góc nhìn sau lưng, kiểu màn Căn cứ của Contra): đứng ở mép trước hành lang, bắn sâu vào trong.
+   Mỗi phòng có các lõi năng lượng trên tường; phá hết lõi phụ thì lõi chính lộ ra, phá lõi chính để sang phòng sau.
+   Hàng rào điện bật tắt sẽ chặn đạn (laser xuyên qua được). Lính chạy ra từ hai cửa; đạn ngang ngực thì **nằm (↓)** để né,
+   lựu đạn lăn sát đất thì **nhảy** qua. Giữ **↑ + ←/→** để bắn chéo. Qua 3 phòng là tới trùm **Cổng Pháo Đài**: lõi chỉ trúng
+   được khi cổng mở, kèm 4 tháp pháo.
+3. **Lò Dung Nham** (cuộn ngang): mạch nham phun lửa. Trùm **Lò Rèn Vô Cực**, lõi chỉ trúng đạn khi đang mở.
+4. **Thác Sấm** (cuộn dọc, kiểu màn Thác nước của Contra): leo ngược thác nước qua các bục gỗ, có đá lăn từ trên xuống.
+   Rơi khỏi đáy màn hình là mất mạng. Camera đi theo người leo cao nhất nhưng không bỏ rơi người ở dưới.
+   Trùm **Thần Đá Thác Sấm**: miệng mở ra mới bắn được lõi lửa bên trong; hai bàn tay đá đập xuống tạo sóng xung kích.
+5. **Thành Trên Mây** (cuộn ngang): đảo bay, biển mây. Trùm **Long Hạm Thiên Vân** bay lượn rồi lao sát mặt đất.
+6. **Hầm Băng** (cuộn ngang): mặt băng trơn trượt, cột băng rơi. Trùm **Voi Băng MK-II** phun băng và húc ngang đấu trường.
+7. **Trạm Nguyệt Cầu** (cuộn ngang): trọng lực thấp. Trùm cuối **Mắt Thần Nguyệt** có giáp xoay, laser có cảnh báo, gọi drone.
 
 **Kẻ địch:** lính robot, **lính khiên** (chặn đạn bắn thẳng từ phía trước; bắn từ trên cao, từ phía sau, hoặc dùng laser/bom/sấm sét),
 tháp pháo, drone, bọ nhảy, mạch nham, cột băng.

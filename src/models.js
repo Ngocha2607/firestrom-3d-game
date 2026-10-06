@@ -609,6 +609,67 @@ const MODELS = (() => {
     return root;
   }
 
+  // stone idol at the top of the waterfall: carved face, jaw that drops open to expose a molten core, two stone fists
+  function idol() {
+    const stone = std('#7a7064', { r: 0.9, m: 0.05 }), dark = std('#4a443c', { r: 0.95, m: 0.05 }), moss = std('#4f8a3a', { r: 0.9, m: 0 });
+    const rune = glow('#ffb43d');
+    const root = new THREE.Group(), head = group(root);
+    mesh(B(6.4, 4.2, 3.2), stone, 0, 0.4, -0.6, head);
+    mesh(B(6.8, 0.9, 3.4), dark, 0, 2.3, -0.6, head);
+    mesh(B(6.6, 0.5, 3.0), moss, 0, 2.95, -0.7, head);
+    for (const x of [-2.6, -1.3, 0, 1.3, 2.6]) { const c = mesh(CO(0.35, 1.3, 4), dark, x, 3.6, -0.6, head); c.rotation.y = Math.PI / 4; }
+    mesh(B(5.6, 0.5, 0.6), dark, 0, 1.25, 1.05, head);                                   // brow
+    const eyes = [-1.4, 1.4].map(x => { mesh(B(1.3, 0.75, 0.3), dark, x, 0.65, 1.0, head); return mesh(B(0.9, 0.38, 0.2), glow('#ff8a2a'), x, 0.65, 1.16, head, false); });
+    mesh(B(0.9, 1.4, 0.8), stone, 0, -0.1, 1.15, head);                                  // nose
+    for (const x of [-2.6, 2.6]) mesh(B(0.12, 1.8, 0.1), rune, x, 0.2, 1.0, head, false);
+    const mouth = mesh(B(2.6, 1.3, 0.6), std('#1a0e08', { r: 1 }), 0, -1.35, 0.9, head);
+    const core = mesh(S(0.75, 16, 12), glow('#ffb43d'), 0, -1.4, 0.75, head, false);
+    const jaw = group(head, 0, -1.65, 0.2);
+    mesh(B(4.2, 0.9, 2.6), stone, 0, -0.45, 0, jaw);
+    for (let i = 0; i < 5; i++) { const tooth = mesh(CO(0.16, 0.45, 4), std('#e8dcc4', { r: 0.6 }), -1.2 + i * 0.6, 0.15, 1.15, jaw); tooth.rotation.x = 0; }
+    const vines = [];
+    for (let i = 0; i < 7; i++) { const v = group(head, -3 + i, 2.6, 1.0); mesh(CY(0.05, 0.04, 1.6 + (i % 3) * 0.7, 5), moss, 0, -0.8 - (i % 3) * 0.35, 0, v); vines.push(v); }
+    const hands = [-1, 1].map(side => {
+      const g = group(root);
+      mesh(B(2.0, 1.5, 1.6), stone, 0, 0, 0, g);
+      for (let k = 0; k < 4; k++) mesh(B(0.42, 0.75, 0.5), dark, -0.66 + k * 0.44, -0.95, 0.35, g);
+      mesh(B(0.5, 0.9, 0.5), stone, side * -1.1, -0.3, 0.4, g);
+      mesh(B(1.2, 0.14, 0.1), rune, 0, 0.3, 0.82, g, false);
+      mesh(B(0.14, 1.0, 0.1), rune, 0, 0.0, 0.82, g, false);
+      g.userData.mats = [];
+      g.traverse(o => { if (o.isMesh && o.material.isMeshStandardMaterial) { o.material = o.material.clone(); g.userData.mats.push(o.material); } });
+      return g;
+    });
+    prepFlash(head);
+    root.userData.animate = (b, t, toW) => {
+      const c = toW(b.cx, b.cy);
+      head.position.set(c.x, c.y, -1.2);
+      jaw.position.y = -1.65 - b.mouth * 1.0;
+      core.visible = b.mouth > 0.2; core.scale.setScalar(0.7 + b.mouth * 0.45 + Math.sin(t * 0.3) * 0.05);
+      const ph2 = b.hp < b.maxHp * 0.5;
+      for (const e of eyes) e.material.color.set(b.fireT < 16 ? '#fff2c0' : ph2 ? '#ff3b4f' : '#ff8a2a');
+      vines.forEach((v, i) => { v.rotation.z = Math.sin(t * 0.03 + i) * 0.12; });
+      b.hands.forEach((hd, i) => {
+        const g = hands[i], p = toW(hd.x, hd.y);
+        g.visible = hd.alive; if (!hd.alive) return;
+        g.position.set(p.x, p.y, -0.2);
+        g.rotation.z = hd.state === 'raise' ? -hd.side * 0.3 : hd.state === 'slam' ? 0 : Math.sin(t * 0.05 + i) * 0.1;
+        for (const m of g.userData.mats) { m.emissive.setRGB(hd.flash > 0 ? 1 : 0, hd.flash > 0 ? 1 : 0, hd.flash > 0 ? 1 : 0); m.emissiveIntensity = hd.flash > 0 ? 0.7 : 0; }
+      });
+      setFlash(head, b.flash > 0 && t % 6 < 2, 0.4);
+    };
+    return root;
+  }
+
+  function roller() {
+    const root = new THREE.Group(), ball = group(root, 0, 0.32, 0);
+    mesh(S(0.32, 12, 10), std('#2a2e3a', { m: 0.8, r: 0.3 }), 0, 0, 0, ball);
+    const band = mesh(new THREE.TorusGeometry(0.33, 0.05, 6, 18), glow('#ff3b4f'), 0, 0, 0, ball, false);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, sp = mesh(CO(0.07, 0.2, 4), std('#5a5f72', { m: 0.8 }), Math.cos(a) * 0.32, Math.sin(a) * 0.32, 0, ball); sp.rotation.z = a - Math.PI / 2; }
+    root.userData.animate = (e, t) => { ball.rotation.x = -e.spin; band.material.color.set(t % 10 < 5 ? '#ff3b4f' : '#ffd23f'); };
+    return root;
+  }
+
   // ---------- props ----------
   function pedestal(color) {
     const root = new THREE.Group();
@@ -619,5 +680,5 @@ const MODELS = (() => {
     return root;
   }
 
-  return { hero, soldier, turret, drone, hopper, capsule, power, crab, core, serpent, icicle, mammoth, eye, pedestal, face, glow, std, mesh, group, B, S, CY, CO, placeStrut };
+  return { hero, soldier, turret, drone, hopper, capsule, power, crab, core, serpent, icicle, mammoth, eye, idol, roller, pedestal, face, glow, std, mesh, group, B, S, CY, CO, placeStrut };
 })();

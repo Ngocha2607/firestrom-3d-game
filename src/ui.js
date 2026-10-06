@@ -168,7 +168,7 @@ const UI = (() => {
       // floating texts and player tags
       let n = 0;
       for (const t of L.texts) {
-        const f = floater(n++), p = VIEW3D.project(t.x, t.y, 0.5);
+        const f = floater(n++), p = VIEW3D.project(t.x, t.y, 0.5, t.z);
         f.textContent = t.s; f.style.color = t.c; f.style.opacity = Math.min(1, t.life / 20);
         f.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) translate(-50%, -50%)`; f.className = 'fl';
       }

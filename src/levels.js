@@ -7,6 +7,34 @@
 // optional: ice (slippery ground), gravity (overrides the default 0.27)
 // The last 30 columns of every stage are the boss arena; the camera locks there.
 'use strict';
+
+// Thác Sấm (vertical climb): ledges every 3 rows on three lanes. The lane walk only ever moves one lane
+// sideways per step, so every ledge is reachable with a normal jump through the one-way platform above.
+function buildFalls() {
+  const rows = 110, lanes = [[3, 7], [11, 8], [20, 7]];
+  const seq = [1, 0, 1, 2, 1, 0, 0, 1, 2, 2, 1, 0, 1, 2, 1, 0, 1, 1, 2, 1, 0, 1, 2, 1, 0, 0, 1, 2, 1, 1];
+  const plats = [], enemies = [];
+  seq.forEach((lane, i) => {
+    const row = 103 - 3 * i, [c, len] = lanes[lane];
+    plats.push([c, row, len]);
+    const other = lane === 1 ? (i % 2 ? 0 : 2) : 1;
+    if (i % 5 === 4 && row > 20) plats.push([lanes[other][0] + 1, row - 1, 4]);
+    if (i % 3 === 1) enemies.push(['soldier', c + (len >> 1), row]);
+    if (i % 4 === 2) enemies.push(['turret', c + 1, row]);
+    if (i % 5 === 3) enemies.push(['hopper', c + len - 2, row]);
+    if (i % 7 === 4) enemies.push(['shield', c + 2, row]);
+    if (i % 4 === 0 && i > 0) enemies.push(['drone', 15, row - 2]);
+  });
+  plats.push([2, 14, 26], [3, 10, 6], [21, 10, 6]);                 // boss arena: full-width floor + two ledges
+  return {
+    name: 'THÁC SẤM', sub: 'Leo ngược thác nước giữa hẻm núi', theme: 'falls', music: 'falls', boss: 'idol',
+    cols: 30, rows, vertical: true, arenaFloor: 14, rockfall: true,
+    ground: [], blocks: [[0, 0, 2, rows], [28, 0, 2, rows], [0, 106, 30, 4]],
+    plats, enemies,
+    capsules: [[100, 'S'], [85, 'A'], [70, 'B'], [55, 'T'], [40, 'Z'], [25, 'E'], [18, 'M']],
+  };
+}
+
 const LEVELS = [
   {
     name: 'CẢNG NEON', sub: 'Bến cảng chìm trong mưa đêm', theme: 'harbor', music: 'harbor', boss: 'crab', cols: 200,
@@ -23,6 +51,16 @@ const LEVELS = [
     capsules: [[16, 'S'], [40, 'A'], [64, 'L'], [106, 'H'], [130, 'E'], [150, 'R'], [166, 'M']],
   },
   {
+    name: 'PHÁO ĐÀI NGẦM', sub: 'Đột nhập căn cứ ngầm dưới lòng cảng', theme: 'base', music: 'base', boss: 'gate', mode: 'base', cols: 30,
+    ground: [[0, 30, 13]], plats: [], enemies: [], capsules: [],
+    // each room: wall cores (x across the corridor), wall turrets, soldiers and rolling grenades to send, electric fence, reward
+    rooms: [
+      { cores: [130, 240, 350], turrets: [], soldiers: 6, rollers: 2, barrier: 0, reward: 'S' },
+      { cores: [90, 190, 290, 390], turrets: [150, 330], soldiers: 8, rollers: 4, barrier: 1, reward: 'A' },
+      { cores: [110, 240, 370], turrets: [60, 180, 300, 420], soldiers: 10, rollers: 6, barrier: 1, reward: 'M' },
+    ],
+  },
+  {
     name: 'LÒ DUNG NHAM', sub: 'Xưởng đúc vũ khí dưới lòng núi lửa', theme: 'forge', music: 'forge', boss: 'core', cols: 210,
     ground: [[0, 20, 13], [23, 36, 13], [36, 44, 11], [48, 60, 13], [60, 70, 11], [73, 86, 11], [90, 100, 13],
              [100, 108, 11], [111, 122, 10], [126, 138, 12], [141, 150, 12], [150, 158, 10], [162, 210, 13]],
@@ -37,6 +75,7 @@ const LEVELS = [
     ],
     capsules: [[12, 'S'], [30, 'A'], [58, 'H'], [98, 'L'], [118, 'Z'], [142, 'R'], [176, 'M']],
   },
+  buildFalls(),
   {
     name: 'THÀNH TRÊN MÂY', sub: 'Pháo đài lơ lửng giữa biển mây', theme: 'sky', music: 'sky', boss: 'serpent', cols: 220,
     ground: [[0, 18, 12], [21, 30, 11], [33, 42, 10], [46, 56, 12], [59, 66, 10], [69, 80, 11], [84, 96, 12],
