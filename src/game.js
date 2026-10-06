@@ -199,6 +199,17 @@
         }
       }
     }
+    // ground snap: gravity moves a standing body less than a pixel into the gap above the tile,
+    // which the overlap test above cannot see — so glue it to a floor that is within 1px below
+    if (!e.onGround && e.vy >= 0) {
+      const bottom = e.y + e.h, r = Math.round(bottom / T), top = r * T;
+      if (Math.abs(bottom - top) <= 1 && prevB <= top + 1) {
+        for (let c = Math.floor(e.x / T); c <= Math.floor((e.x + e.w - 1) / T); c++) {
+          const v = tileAt(c, r);
+          if (v === 1 || (v === 2 && !drop)) { e.y = top - e.h; e.vy = 0; e.onGround = true; break; }
+        }
+      }
+    }
   }
   function onOneWay(p) {
     const r = Math.floor((p.y + p.h) / T);

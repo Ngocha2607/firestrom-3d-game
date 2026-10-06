@@ -125,8 +125,9 @@ const MODELS = (() => {
     flash.visible = false;
     if (!ghostMat) prepFlash(root);
 
+    const pose = { t0: 0, t1: 0, k0: 0, k1: 0, hip: 0.8, lean: 0 };
     root.userData.animate = s => {
-      const L0 = legs[0], L1 = legs[1];
+      const L0 = { thigh: { rotation: {} }, knee: { rotation: {} } }, L1 = { thigh: { rotation: {} }, knee: { rotation: {} } };
       let hipY = 0.8, lean = 0;
       if (s.crouch) {
         hipY = 0.46; L0.thigh.rotation.z = 1.35; L0.knee.rotation.z = -2.1; L1.thigh.rotation.z = 0.25; L1.knee.rotation.z = -1.55;
@@ -142,7 +143,15 @@ const MODELS = (() => {
         torso.scale.y = 1 + Math.sin(s.t * 0.08) * 0.015;
       }
       if (s.dash) lean = -0.5;
-      hips.position.y = hipY; body.rotation.z = lean;
+      // ease toward the target pose; running and crouching respond faster than landing/idle
+      const k = s.running || s.crouch || s.dash ? 0.6 : 0.35;
+      pose.t0 += (L0.thigh.rotation.z - pose.t0) * k; pose.t1 += (L1.thigh.rotation.z - pose.t1) * k;
+      pose.k0 += (L0.knee.rotation.z - pose.k0) * k; pose.k1 += (L1.knee.rotation.z - pose.k1) * k;
+      pose.hip += (hipY - pose.hip) * k; pose.lean += (lean - pose.lean) * k;
+      legs[0].thigh.rotation.z = pose.t0; legs[1].thigh.rotation.z = pose.t1;
+      legs[0].knee.rotation.z = pose.k0; legs[1].knee.rotation.z = pose.k1;
+      lean = pose.lean;
+      hips.position.y = pose.hip; body.rotation.z = lean;
       gunArm.rotation.z = s.aim - lean; backArm.rotation.z = s.aim - lean - 0.18;
       head.rotation.z = Math.max(-0.35, Math.min(0.45, s.aim * 0.35));
       flash.visible = s.flash > 0;
