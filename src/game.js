@@ -113,13 +113,15 @@
 
   // ---------- run state ----------
   let state = 'title', stateT = 0, paused = false, frame = 0, titleX = 0, lobby = [], lobbyT = 0;
+  let difficulty = 1;                                   // index into DIFFS, chosen in the lobby
+  const DF = () => DIFFS[G && G.diff !== undefined ? G.diff : difficulty];
   let G = null, Lv = null, hiscore = 0;
   try { hiscore = +localStorage.getItem('baolua_hi') || 0; } catch (e) { }
   const teamScore = () => (G ? G.players.reduce((s, p) => s + p.score, 0) : 0);
   const saveHi = () => { const s = teamScore(); if (s > hiscore) { hiscore = s; try { localStorage.setItem('baolua_hi', String(s)); } catch (e) { } } };
 
-  function makeRecord(slot, ci, num) { return { slot, ci, num, lives: 3, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
-  function newRun(entries) { G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i)), stage: 0, storm: 0 }; }
+  function makeRecord(slot, ci, num) { return { slot, ci, num, lives: DF().lives, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
+  function newRun(entries) { G = null; G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i)), stage: 0, storm: 0, diff: difficulty }; }
   function freeChar(used) { const c = [...CHARS.keys()].find(i => !used.includes(i)); return c === undefined ? used.length % CHARS.length : c; }
 
   function lobbyJoin(slot) {
@@ -155,7 +157,7 @@
 
   function newPlayer(pr, x, y) {
     return { pr, slot: pr.slot, ci: pr.ci, x, y, w: 10, h: 22, vx: 0, vy: 0, facing: 1, aimX: 1, aimY: 0, onGround: false, crouch: false,
-      coyote: 0, jumpBuf: 0, jumps: 0, dropT: 0, fireCd: 0, flash: 0, dashT: 0, dashCd: 0, invuln: 150, hp: CHARS[pr.ci].hp,
+      coyote: 0, jumpBuf: 0, jumps: 0, dropT: 0, fireCd: 0, flash: 0, dashT: 0, dashCd: 0, invuln: 150, hp: CHARS[pr.ci].hp + DF().hpBonus, maxHp: CHARS[pr.ci].hp + DF().hpBonus,
       anim: 0, dead: false, deadT: 0, ghost: false, gx: 0, gy: 0, reviveT: 0,
       drone: CHARS[pr.ci].drone ? { x, y, fireT: 40 } : null };
   }
@@ -249,6 +251,7 @@
   }
   function floatText(x, y, s, c = VOLT) { Lv.texts.push({ x, y, s, c, life: 70 }); }
   function addScore(n, pr, x, y) {
+    n = Math.round(n * DF().score);
     if (!pr) { G.players.forEach(q => q.score += Math.round(n / G.players.length)); return; }
     pr.score += n;
     if (x !== undefined && n >= 300) floatText(x, y, String(n), PCOL[pr.num]);
@@ -499,7 +502,7 @@
             if (e.stopT === 10 && alive) { enemyShot(e.x + e.w / 2 + e.face * 10, e.y + 8, px, py, 2.3); e.muzzle = 5; }
           } else {
             e.vx = e.dir * 1.05; e.face = e.dir;
-            if (onScreen(e) && e.onGround && --e.shootT <= 0) { e.stopT = 26; e.shootT = 110 + Math.random() * 90; }
+            if (onScreen(e) && e.onGround && --e.shootT <= 0) { e.stopT = 26; e.shootT = (110 + Math.random() * 90) * DF().eFire; }
           }
           e.vy = Math.min(e.vy + grav(), 7); physics(e, false);
           if (e.hitWall && e.onGround) e.vy = -4.6;
@@ -513,7 +516,7 @@
             if (e.stopT === 8 && alive) { enemyShot(e.x + e.w / 2 + e.face * 10, e.y + 8, px, py, 2.4); e.muzzle = 5; }
           } else {
             e.vx = onScreen(e) && Math.abs(px - e.x) > 70 ? e.face * 0.55 : 0;
-            if (onScreen(e) && e.onGround && --e.shootT <= 0) { e.stopT = 22; e.shootT = 120 + Math.random() * 80; }
+            if (onScreen(e) && e.onGround && --e.shootT <= 0) { e.stopT = 22; e.shootT = (120 + Math.random() * 80) * DF().eFire; }
           }
           e.vy = Math.min(e.vy + grav(), 7); physics(e, false);
           break;
@@ -527,7 +530,7 @@
           let d = want - e.ang; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
           e.ang += clamp(d, -0.05, 0.05);
           if (onScreen(e) && --e.fireT <= 0) {
-            e.fireT = 100 + Math.random() * 40;
+            e.fireT = (100 + Math.random() * 40) * DF().eFire;
             if (alive) enemyShot(tx + Math.cos(e.ang) * 12, ty + Math.sin(e.ang) * 12, tx + Math.cos(e.ang) * 100, ty + Math.sin(e.ang) * 100, 2.2);
           }
           break;
@@ -542,7 +545,7 @@
             if (Lv.bossState !== 'none' && ((e.x < Lv.camX + 4 && e.vx < 0) || (e.x > Lv.camX + W - 18 && e.vx > 0))) e.vx = -e.vx;
           } else if (e.mode === 'dive') { e.x += e.vx; e.y += e.vy; if (--e.mt <= 0) { e.mode = 'leave'; e.vx = -1.2; e.vy = -1.4; } }
           else { e.x += e.vx; e.y += e.vy; if (e.y < -30) e.remove = true; }
-          if (onScreen(e) && --e.fireT <= 0) { e.fireT = 130 + Math.random() * 60; if (alive) enemyShot(e.x + 7, e.y + 8, px, py, 2); }
+          if (onScreen(e) && --e.fireT <= 0) { e.fireT = (130 + Math.random() * 60) * DF().eFire; if (alive) enemyShot(e.x + 7, e.y + 8, px, py, 2); }
           break;
         case 'hopper':
           if (e.onGround) {
@@ -582,7 +585,7 @@
 
   // ---------- bosses ----------
   function spawnBoss() {
-    const ax = Lv.arenaX, gy = Lv.groundY, type = Lv.d.boss, mult = 1 + 0.5 * (G.players.length - 1);
+    const ax = Lv.arenaX, gy = Lv.groundY, type = Lv.d.boss, mult = (1 + 0.5 * (G.players.length - 1)) * DF().boss;
     let b;
     if (type === 'crab') b = { name: 'CUA THÉP K-9', x: ax + W + 10, y: gy - 46, w: 84, h: 46, hp: 150, vx: 0, vy: 0, mode: 'enter', modeT: 0, face: -1, shootT: 70, cycles: 0, targetX: ax + W - 130, mortarT: 160 };
     if (type === 'core') {
@@ -953,7 +956,7 @@
       }
       while (L.spawnIdx < L.spawns.length && L.spawns[L.spawnIdx].col * T < L.camX + W + 24) spawnEntity(L.spawns[L.spawnIdx++]);
       if (al.length && --L.soldierT <= 0) {
-        L.soldierT = (150 + Math.random() * 140) / Math.sqrt(G.players.length);
+        L.soldierT = (150 + Math.random() * 140) / Math.sqrt(G.players.length) * DF().spawn;
         const fromLeft = Math.random() < 0.2 && L.camX > 40, x = fromLeft ? L.camX - 12 : L.camX + W + 4, top = solidTop(Math.floor((x + 5) / T));
         if (top >= 0 && L.enemies.filter(e => e.type === 'soldier').length < 4 + G.players.length) spawnSoldier(x, top * T - 20, fromLeft ? 1 : -1);
       }
@@ -981,8 +984,12 @@
     }
     if (L.flashT > 0) L.flashT--;
 
+    const nB = L.eB.length;
     updateEnemies();
     if (L.boss) updateBoss(L.boss);
+    // difficulty: straight enemy shots fly slower/faster (arcing ones keep their aimed trajectory)
+    const ks = DF().eSpeed;
+    if (ks !== 1) for (let i = nB; i < L.eB.length; i++) { const b = L.eB[i]; if (!b.g) { b.vx *= ks; b.vy *= ks; } }
     for (const bm of L.beams) {
       const eb = L.boss;
       if (eb && eb.type === 'eye' && eb.alive) { bm.x1 = eb.cx; bm.y1 = eb.cy; }
@@ -1011,11 +1018,30 @@
   }
 
   // ---------- step per state ----------
+  function setDifficulty(d) {
+    d = clamp(d, 0, DIFFS.length - 1);
+    if (d === difficulty) return;
+    difficulty = d; lobbyT = 0; SFX.select();
+  }
+  // a click/tap on a difficulty button; LAN guests nudge the host one step at a time with up/down
+  function pickDifficulty(d) {
+    SFX.init();
+    if (state !== 'select') return;
+    if (netRole === 'guest') {
+      if (d === difficulty) return;
+      const k = d < difficulty ? 'up' : 'down', slot = playerSlots()[0] || 'kb';
+      netSend({ t: 'in', slot, k: { [k]: true } }); netSend({ t: 'in', slot, k: { [k]: false } });
+      return;
+    }
+    setDifficulty(d);
+  }
   function stepSelect() {
     const sys = inp('sys').p;
     for (const id of playerSlots()) {
       const P = inputs[id].p, i = lobby.findIndex(l => l.slot === id), l = lobby[i];
       if (!l) { if (P.fire || P.jump || P.start) lobbyJoin(id); continue; }
+      if (P.up) setDifficulty(difficulty - 1);
+      if (P.down) setDifficulty(difficulty + 1);
       if (!l.ready) {
         if (P.left) { l.ci = (l.ci + CHARS.length - 1) % CHARS.length; SFX.select(); }
         if (P.right) { l.ci = (l.ci + 1) % CHARS.length; SFX.select(); }
@@ -1064,7 +1090,7 @@
         break;
       case 'over':
         if (stateT > 40 && (sys.start || anyPressed('fire', 'start')) && !sys.back) {
-          for (const pr of G.players) Object.assign(pr, { lives: 3, score: 0, nextLife: 20000, weapon: 'P', rapid: false });
+          for (const pr of G.players) Object.assign(pr, { lives: DF().lives, score: 0, nextLife: 20000, weapon: 'P', rapid: false });
           G.storm = 0; startStage(G.stage);
         } else if (stateT > 40 && sys.back) { state = 'title'; stateT = 0; SFX.music('title'); }
         break;
@@ -1120,7 +1146,7 @@
   function sendSnap() {
     if (!netWs || netWs.readyState !== 1) { sfxQueue.length = 0; return; }
     if (netWs.bufferedAmount > 512 * 1024) return;
-    const s = { t: 'snap', state, stateT, frame, paused, lobby, lobbyT, hiscore, titleX, music: curMusic, sfx: sfxQueue.splice(0), G };
+    const s = { t: 'snap', state, stateT, frame, paused, lobby, lobbyT, difficulty, hiscore, titleX, music: curMusic, sfx: sfxQueue.splice(0), G };
     if (Lv && G && (state === 'play' || state === 'clear' || state === 'over')) {
       const L = Lv, b = L.boss;
       s.lv = {
@@ -1135,7 +1161,7 @@
   }
 
   function applySnap(m) {
-    state = m.state; stateT = m.stateT; frame = m.frame; paused = m.paused; lobby = m.lobby || []; lobbyT = m.lobbyT; titleX = m.titleX;
+    state = m.state; stateT = m.stateT; frame = m.frame; paused = m.paused; lobby = m.lobby || []; lobbyT = m.lobbyT; if (m.difficulty !== undefined) difficulty = m.difficulty; titleX = m.titleX;
     hiscore = Math.max(hiscore, m.hiscore || 0); G = m.G || null;
     if (m.lv && G) {
       if (!Lv || Lv.i !== m.lv.i) Lv = buildLevel(m.lv.i);
@@ -1205,7 +1231,7 @@
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   const V = { isTouch, slotName };
-  UI.init(document.getElementById('ui'), tap);
+  UI.init(document.getElementById('ui'), tap, pickDifficulty);
   function loop(now) {
     const dtMs = Math.min(100, now - last);
     acc += dtMs; last = now;
@@ -1216,7 +1242,7 @@
     }
     lanVisibility();
     V.state = state; V.stateT = stateT; V.frame = frame; V.paused = paused; V.G = G; V.Lv = Lv; V.lobby = lobby; V.lobbyT = lobbyT;
-    V.hiscore = hiscore; V.team = teamScore(); V.netRole = netRole; V.splitKb = splitKb;
+    V.hiscore = hiscore; V.team = teamScore(); V.netRole = netRole; V.splitKb = splitKb; V.difficulty = G && G.diff !== undefined ? G.diff : difficulty;
     VIEW3D.render(V, dtMs);
     UI.render(V);
     requestAnimationFrame(loop);
@@ -1230,6 +1256,7 @@
     get G() { return G; }, get Lv() { return Lv; }, inputs, setIn,
     start(cis, st) { newRun(cis.map((ci, i) => ({ slot: ['kbA', 'kbB', 'pad0', 'pad1'][i], ci }))); startStage(st); },
     tick(n) { for (let i = 0; i < n; i++) step(); },
+    setDiff(d) { difficulty = d; },
   };
   function boot(data) {
     if (data && data.playing && data.G && data.G.players) { G = data.G; startStage(G.stage); }

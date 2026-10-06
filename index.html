@@ -70,6 +70,15 @@
   .scr-select header { text-align: center; }
   .scr-select h2 { margin: 0; font: 400 clamp(26px, 3.6vw, 44px)/1 var(--display); text-shadow: 0 3px 0 #3a0c1e, 0 0 24px rgba(255, 90, 31, 0.45); }
   .scr-select header p { margin: 8px 0 0; font: 500 14px/1.4 var(--body); color: var(--dim); }
+  .diffs { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 14px; }
+  .dlabel { font: 700 12px/1 var(--body); letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+  .dbtns { display: inline-flex; gap: 3px; padding: 3px; background: var(--panel); border: 1px solid var(--edge); backdrop-filter: blur(6px); }
+  .dbtn { padding: 9px 18px; font: 700 13px/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); background: transparent; border: 0; cursor: pointer; }
+  .dbtn:hover { color: var(--ink); }
+  .dbtn.on { background: var(--dc); color: var(--void); box-shadow: 0 0 18px var(--dc); }
+  .dbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .scr-select header .ddesc { margin: 10px auto 0; max-width: 60ch; color: var(--ink); font-size: 13px; text-shadow: 0 1px 4px #000; }
+  .ddesc .dk { color: var(--dim); white-space: nowrap; margin-left: 6px; }
   .cards { grid-row: 3; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
   .card {
     position: relative; min-width: 0; min-height: 200px; padding: 14px; cursor: pointer;

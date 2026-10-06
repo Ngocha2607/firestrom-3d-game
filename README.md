@@ -43,6 +43,18 @@ người bên trái dùng W A S D + F/G/H/R, người bên phải dùng phím m�
 - P / Esc / Start: tạm dừng. M: tắt hoặc bật âm thanh. **Q: đổi chất lượng đồ họa** (Cao: có bóng đổ; Thấp: cho máy yếu).
 - Đang chơi mà bấm Bắn trên một thiết bị mới là có thêm người tham gia giữa trận.
 
+## Độ khó
+
+Chọn ở sảnh chọn nhân vật (bấm nút trên màn hình, hoặc ↑ / ↓ trên bàn phím hay tay cầm của bất kỳ người chơi nào):
+
+| | Dễ | Thường | Khó |
+|---|---|---|---|
+| Mạng mỗi người | 5 | 3 | 2 |
+| Giáp | +1 lớp cho mọi nhân vật | như thiết kế | như thiết kế |
+| Địch bắn | thưa hơn, đạn chậm hơn 20% | bình thường | dày hơn, đạn nhanh hơn 25% |
+| Máu trùm | ×0.75 | ×1 | ×1.35 |
+| Điểm | ×0.75 | ×1 | ×1.5 |
+
 ## Nội dung game
 
 **Nhân vật** (5)

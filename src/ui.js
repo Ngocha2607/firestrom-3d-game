@@ -5,7 +5,7 @@ const UI = (() => {
   const $ = (s, r = document) => r.querySelector(s);
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
   const pad = (n, k = 7) => String(Math.max(0, Math.floor(n))).padStart(k, '0');
-  let root, el = {}, cache = new Map(), onTap = () => { };
+  let root, el = {}, cache = new Map(), onTap = () => { }, onDiff = () => { };
 
   function set(node, key, val, fn) {
     const k = node.__id + key;
@@ -18,8 +18,8 @@ const UI = (() => {
   const cls = (node, c, on) => { id(node); set(node, 'c' + c, on, x => node.classList.toggle(c, x)); };
   const style = (node, p, v) => { id(node); set(node, 's' + p, v, x => node.style.setProperty(p, x)); };
 
-  function init(r, tap) {
-    root = r; onTap = tap;
+  function init(r, tap, pickDiff) {
+    root = r; onTap = tap; onDiff = pickDiff || onDiff;
     root.innerHTML = `
       <section class="scr scr-title">
         <div class="title-block">
@@ -36,7 +36,9 @@ const UI = (() => {
         </div>
       </section>
       <section class="scr scr-select">
-        <header><h2>Chọn chiến binh</h2><p>1 đến 4 người. Mỗi thiết bị bấm nút <b>Bắn</b> để vào đội.</p></header>
+        <header><h2>Chọn chiến binh</h2><p>1 đến 4 người. Mỗi thiết bị bấm nút <b>Bắn</b> để vào đội.</p>
+          <div class="diffs"><span class="dlabel">Độ khó</span><div class="dbtns">${DIFFS.map((d, i) => `<button type="button" class="dbtn" data-diff="${i}" style="--dc:${['#38d6b4', '#ffd23f', '#ff3b4f'][i]}">${d.name}</button>`).join('')}</div></div>
+          <p class="ddesc"></p></header>
         <div class="cards"></div>
         <footer class="sel-hint"></footer>
       </section>
@@ -55,7 +57,7 @@ const UI = (() => {
     el = {
       press: $('.press', root), hi: $('.scr-title .hi', root), cards: $('.cards', root), selHint: $('.sel-hint', root),
       pps: $('.pps', root), joinhint: $('.joinhint', root), boss: $('.boss', root), bname: $('.bname', root), bfill: $('.bbar i', root), bghost: $('.bbar b', root),
-      storm: $('.storm', root), sfill: $('.sbar i', root), team: $('.team', root), hi2: $('.hi2', root), floaters: $('.floaters', root), banner: $('.banner', root),
+      storm: $('.storm', root), dbtns: [...root.querySelectorAll('.dbtn')], ddesc: $('.ddesc', root), sfill: $('.sbar i', root), team: $('.team', root), hi2: $('.hi2', root), floaters: $('.floaters', root), banner: $('.banner', root),
     };
     for (let i = 0; i < 4; i++) {
       const c = h('article', 'card'); c.dataset.card = i; c.style.setProperty('--pc', PCOL[i]);
@@ -71,6 +73,8 @@ const UI = (() => {
       el.pps.appendChild(p);
     }
     root.addEventListener('pointerdown', e => {
+      const db = e.target.closest && e.target.closest('[data-diff]');
+      if (db) { e.preventDefault(); onDiff(+db.dataset.diff); return; }
       const card = e.target.closest && e.target.closest('.card');
       onTap(card ? +card.dataset.card : -1, e.pointerType === 'touch');
     });
@@ -85,7 +89,7 @@ const UI = (() => {
   function bannerHTML(V) {
     const G = V.G, L = V.Lv, st = V.state;
     if (st === 'victory' && G) return ['victory', `<div class="bx"><p class="k">Hoàn thành chiến dịch</p><h2>Chiến thắng</h2>
-      <p>Cua Thép, Lò Rèn, Long Hạm, Voi Băng và Mắt Thần đều đã sụp đổ.</p>
+      <p>Cua Thép, Lò Rèn, Long Hạm, Voi Băng và Mắt Thần đều đã sụp đổ. Độ khó: <b>${DIFFS[G.diff || 0].name}</b></p>
       <ul>${G.players.map(p => `<li style="--pc:${PCOL[p.num]}"><span>P${p.num + 1} ${CHARS[p.ci].name}</span><b>${pad(p.score, 6)}</b></li>`).join('')}</ul>
       <p class="big">Đội ${pad(V.team)}</p>${V.stateT > 90 ? '<p class="cta">Bấm Bắn hoặc Enter để về màn hình chính</p>' : ''}</div>`];
     if (!L || !G) return ['', ''];
@@ -122,6 +126,8 @@ const UI = (() => {
         c.querySelectorAll('.stats dd i').forEach((b, k) => style(b, 'width', ch.stats[k] * 20 + '%'));
         text(c.querySelector('.state'), l.ready ? 'Sẵn sàng' : (V.isTouch ? 'Chạm thẻ để sẵn sàng' : '◀ ▶ đổi nhân vật · Bắn để chọn'));
       }
+      el.dbtns.forEach((b, i) => cls(b, 'on', i === V.difficulty));
+      html(el.ddesc, DIFFS[V.difficulty].desc + (V.isTouch ? '' : ' <span class="dk"><kbd>↑</kbd><kbd>↓</kbd> đổi độ khó</span>'));
       const all = V.lobby.length && V.lobby.every(l => l.ready);
       cls(el.selHint, 'go', !!all);
       text(el.selHint, all ? 'Vào trận!' : V.isTouch ? 'Chạm thẻ của bạn để sẵn sàng' : 'Lướt: rời đội hoặc huỷ sẵn sàng · Esc: quay lại · Tab: ' + (V.splitKb ? 'tắt chế độ 2 người chung bàn phím' : '2 người chung một bàn phím'));
@@ -138,7 +144,8 @@ const UI = (() => {
         const ghost = p && p.ghost;
         cls(node, 'ghost', !!ghost);
         html(node.querySelector('.lives'), ghost ? '' : '<i></i>'.repeat(Math.min(pr.lives, 6)) + (pr.lives > 6 ? `<em>+${pr.lives - 6}</em>` : ''));
-        html(node.querySelector('.armor'), !ghost && ch.hp > 1 && p && !p.dead ? Array.from({ length: ch.hp }, (_, k) => `<i class="${k < p.hp ? 'on' : ''}"></i>`).join('') : '');
+        const mh = p ? (p.maxHp || ch.hp) : ch.hp;
+        html(node.querySelector('.armor'), !ghost && mh > 1 && p && !p.dead ? Array.from({ length: mh }, (_, k) => `<i class="${k < p.hp ? 'on' : ''}"></i>`).join('') : '');
         text(node.querySelector('.wp'), ghost ? (p.reviveT > 0 ? 'Đang hồi sinh…' : 'Đứng cạnh để cứu') : (WEAPONS[pr.weapon] || WEAPONS.P).name + (pr.rapid ? ' +' : ''));
         if (!ghost) style(node.querySelector('.wp'), 'color', pr.weapon === 'P' ? '' : (WEAPONS[pr.weapon] || WEAPONS.P).col);
         cls(node.querySelector('.wp'), 'hot', !ghost && pr.weapon !== 'P');
@@ -156,7 +163,7 @@ const UI = (() => {
       style(el.sfill, 'width', G.storm.toFixed(1) + '%'); cls(el.storm, 'full', full);
       text(el.storm.querySelector('.skey'), V.splitKb ? 'R · L · Y' : 'I · V · Y');
       text(el.team, 'Đội ' + pad(V.team));
-      text(el.hi2, 'Kỷ lục ' + pad(Math.max(V.hiscore, V.team)));
+      text(el.hi2, 'Độ khó ' + DIFFS[V.difficulty].name + ' · Kỷ lục ' + pad(Math.max(V.hiscore, V.team)));
 
       // floating texts and player tags
       let n = 0;

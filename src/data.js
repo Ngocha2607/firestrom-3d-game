@@ -35,3 +35,11 @@ const WEAPONS = {
   T: { name: 'Sấm sét', col: '#7ab8ff' },
   R: { name: 'Bắn nhanh', col: '#ffd23f' },
 };
+
+// difficulty presets chosen in the lobby. eFire: multiplier on enemy shot intervals (higher = fewer shots),
+// eSpeed: enemy bullet speed, boss: boss HP, spawn: extra-soldier interval, score: score multiplier
+const DIFFS = [
+  { id: 'easy', name: 'Dễ', desc: '5 mạng, mọi nhân vật có thêm 1 lớp giáp, địch bắn thưa và chậm hơn.', lives: 5, hpBonus: 1, eFire: 1.45, eSpeed: 0.8, boss: 0.75, spawn: 1.4, score: 0.75 },
+  { id: 'normal', name: 'Thường', desc: '3 mạng. Độ khó cân bằng như thiết kế gốc.', lives: 3, hpBonus: 0, eFire: 1, eSpeed: 1, boss: 1, spawn: 1, score: 1 },
+  { id: 'hard', name: 'Khó', desc: '2 mạng, địch bắn dày và nhanh hơn, trùm trâu hơn. Điểm ×1.5.', lives: 2, hpBonus: 0, eFire: 0.7, eSpeed: 1.25, boss: 1.35, spawn: 0.7, score: 1.5 },
+];
