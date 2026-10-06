@@ -303,7 +303,7 @@ const MODELS = (() => {
   function capsule() {
     const root = new THREE.Group(), hull = group(root);
     const body = mesh(S(0.4, 16, 10), std('#c9cfe6', { m: 0.8, r: 0.2 }), 0, 0, 0, hull); body.scale.set(1.3, 0.75, 0.8);
-    mesh(S(0.2, 12, 8), glow('#ff4f86'), 0.12, 0, 0.18, hull, false);
+    const core = mesh(S(0.2, 12, 8), glow('#ff4f86'), 0.12, 0, 0.18, hull, false);
     const wings = [];
     for (const z of [-1, 1]) {
       const w = group(hull, -0.1, 0.1, z * 0.25); wings.push(w);
@@ -312,6 +312,8 @@ const MODELS = (() => {
     }
     prepFlash(root);
     root.userData.animate = (e, t) => {
+      const item = SUPPORT[e.weapon] || WEAPONS[e.weapon];
+      core.material.color.set(t % 12 < 7 && item ? item.col : '#ffffff');
       wings[0].rotation.x = -0.4 + Math.sin(t * 0.5) * 0.5; wings[1].rotation.x = 0.4 - Math.sin(t * 0.5) * 0.5;
       hull.rotation.z = Math.sin(t * 0.07) * 0.2;
       setFlash(root, e.flash > 0);
@@ -319,12 +321,27 @@ const MODELS = (() => {
     return root;
   }
 
-  const POWER_COL = Object.fromEntries(Object.entries(WEAPONS).map(([k, v]) => [k, v.col]));
+  const POWER_COL = Object.fromEntries(Object.entries({ ...WEAPONS, ...SUPPORT }).map(([k, v]) => [k, v.col]));
+  // support items get a drawn icon instead of a letter: + armour, shield, heart, lightning
+  function iconTexture(kind, color) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = color; g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.lineJoin = 'round'; g.shadowColor = color; g.shadowBlur = 18;
+    g.beginPath();
+    if (kind === 'A') { g.rect(50, 20, 28, 88); g.rect(20, 50, 88, 28); }
+    else if (kind === 'Z') { g.moveTo(64, 16); g.lineTo(106, 30); g.quadraticCurveTo(104, 88, 64, 114); g.quadraticCurveTo(24, 88, 22, 30); g.closePath(); }
+    else if (kind === 'M') { g.moveTo(64, 108); g.bezierCurveTo(8, 70, 12, 20, 46, 20); g.bezierCurveTo(56, 20, 62, 28, 64, 36); g.bezierCurveTo(66, 28, 72, 20, 82, 20); g.bezierCurveTo(116, 20, 120, 70, 64, 108); }
+    else { g.moveTo(76, 12); g.lineTo(32, 70); g.lineTo(60, 70); g.lineTo(48, 116); g.lineTo(96, 50); g.lineTo(68, 50); g.closePath(); }
+    g.fill(); g.shadowBlur = 0; g.stroke();
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+  }
   function power(kind) {
     const col = POWER_COL[kind] || '#ffd23f';
     const root = new THREE.Group(), spin = group(root, 0, 0.35, 0);
-    const coin = mesh(CY(0.4, 0.4, 0.12, 6), std('#ffcf4a', { m: 0.9, r: 0.2, ec: '#7a4a00' }), 0, 0, 0, spin); coin.rotation.x = Math.PI / 2;
-    const tex = letterTexture(kind, col);
+    const sup = !!SUPPORT[kind];
+    const coin = mesh(sup ? CY(0.42, 0.42, 0.12, 20) : CY(0.4, 0.4, 0.12, 6), sup ? std('#e8ecf8', { m: 0.9, r: 0.2, ec: col }) : std('#ffcf4a', { m: 0.9, r: 0.2, ec: '#7a4a00' }), 0, 0, 0, spin); coin.rotation.x = Math.PI / 2;
+    if (sup) coin.material.emissiveIntensity = 0.35;
+    const tex = sup ? iconTexture(kind, col) : letterTexture(kind, col);
     for (const s of [1, -1]) { const pl = mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }), 0, 0, s * 0.07, spin, false); if (s < 0) pl.rotation.y = Math.PI; }
     for (const s of [-1, 1]) { const w = mesh(B(0.42, 0.08, 0.06), glow(col), s * 0.55, 0.12, 0, spin, false); w.rotation.z = s * 0.35; }
     const halo = mesh(S(0.55, 12, 8), glow(col, { add: true, op: 0.25 }), 0, 0.35, 0, root, false);

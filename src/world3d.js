@@ -781,6 +781,12 @@ const VIEW3D = (() => {
       const m = drawHero(p.ci, X(p.x + p.w / 2), Y(p.y + p.h), 0, p.facing, heroState(p, t));
       const fr = take('feet_' + pr.num, () => { const o = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.62, 32), basic(c, 2.2, { add: true, op: 0.75 })); o.rotation.x = -Math.PI / 2; return o; });
       fr.position.set(m.position.x, m.position.y + 0.04, 0); fr.visible = p.onGround;
+      if (p.shieldT > 0 && !(p.shieldT < 90 && t % 6 < 3)) {
+        const bub = take('bubble_' + pr.num, () => new THREE.Mesh(new THREE.SphereGeometry(1, 22, 16), basic('#5fd0ff', 1.6, { add: true, op: 0.2 })));
+        const k = 1.25 + Math.sin(t * 0.2) * 0.05;
+        bub.position.set(m.position.x, m.position.y + (p.crouch ? 0.6 : 1.0), 0); bub.scale.set(k * 0.95, k * (p.crouch ? 0.8 : 1.15), k * 0.95);
+        lightAt(m.position.x, m.position.y + 1, 0.8, '#5fd0ff', 1.5, 5);
+      }
       const sp = take('spot_' + pr.num, () => sprite(c, 3.2, 0.22));
       sp.position.set(m.position.x, m.position.y + 1.0, -0.3);
       if (G.players.length > 1) {
@@ -819,7 +825,7 @@ const VIEW3D = (() => {
         }
       }
     }
-    for (const it of L.items) { const m = take('power_' + it.kind, () => MODELS.power(it.kind)); m.position.set(X(it.x + it.w / 2), Y(it.y + it.h), 0.3); m.userData.animate(it, t); }
+    for (const it of L.items) { const m = take('power_' + it.kind, () => MODELS.power(it.kind)); m.position.set(X(it.x + it.w / 2), Y(it.y + it.h), 0.3); m.scale.setScalar(1.3); m.userData.animate(it, t); }
 
     // boss
     const b = L.boss;

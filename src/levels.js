@@ -2,7 +2,8 @@
 // ground: [fromCol, toCol (exclusive), topRow]  — solid from topRow to the bottom of the screen
 // plats:  [col, row, length]                     — one-way platforms (drop through with ↓ + jump)
 // enemies: [kind, col, row?]  kinds: soldier | shield | turret | hopper | drone (needs row) | geyser (sits in a gap) | icicle (hangs from the top)
-// capsules: [col, weapon]  weapons: S spread, L laser, H homing, F flame, B cluster bomb, T lightning, R rapid fire
+// capsules: [col, item]  weapons: S spread, L laser, H homing, F flame, B cluster bomb, T lightning, R rapid fire
+//                         support: A armour +1, Z energy shield, M extra life, E storm charge
 // optional: ice (slippery ground), gravity (overrides the default 0.27)
 // The last 30 columns of every stage are the boss arena; the camera locks there.
 'use strict';
@@ -19,7 +20,7 @@ const LEVELS = [
       ['drone', 44, 5], ['drone', 74, 4], ['drone', 98, 5], ['drone', 120, 4], ['drone', 138, 5], ['drone', 156, 4],
       ['hopper', 92], ['hopper', 128],
     ],
-    capsules: [[16, 'S'], [64, 'L'], [106, 'H'], [150, 'R']],
+    capsules: [[16, 'S'], [40, 'A'], [64, 'L'], [106, 'H'], [130, 'E'], [150, 'R'], [166, 'M']],
   },
   {
     name: 'LÒ DUNG NHAM', sub: 'Xưởng đúc vũ khí dưới lòng núi lửa', theme: 'forge', music: 'forge', boss: 'core', cols: 210,
@@ -34,7 +35,7 @@ const LEVELS = [
       ['hopper', 32], ['hopper', 56], ['hopper', 82], ['hopper', 96], ['hopper', 118], ['hopper', 146], ['hopper', 172],
       ['drone', 50, 4], ['drone', 92, 5], ['drone', 135, 4], ['drone', 165, 5],
     ],
-    capsules: [[12, 'S'], [58, 'H'], [98, 'L'], [142, 'R']],
+    capsules: [[12, 'S'], [30, 'A'], [58, 'H'], [98, 'L'], [118, 'Z'], [142, 'R'], [176, 'M']],
   },
   {
     name: 'THÀNH TRÊN MÂY', sub: 'Pháo đài lơ lửng giữa biển mây', theme: 'sky', music: 'sky', boss: 'serpent', cols: 220,
@@ -50,7 +51,7 @@ const LEVELS = [
       ['turret', 38], ['turret', 64], ['turret', 116], ['turret', 158],
       ['hopper', 52], ['hopper', 92], ['hopper', 142],
     ],
-    capsules: [[8, 'L'], [60, 'S'], [114, 'H'], [162, 'R']],
+    capsules: [[8, 'L'], [45, 'E'], [60, 'S'], [100, 'A'], [114, 'H'], [162, 'R'], [185, 'M']],
   },
   {
     name: 'HẦM BĂNG', sub: 'Mỏ băng vĩnh cửu dưới cực quang', theme: 'ice', music: 'ice', boss: 'mammoth', cols: 210, ice: true,
@@ -66,7 +67,7 @@ const LEVELS = [
       ['hopper', 30], ['hopper', 86], ['hopper', 152],
       ['icicle', 26], ['icicle', 48], ['icicle', 53], ['icicle', 78], ['icicle', 92], ['icicle', 115], ['icicle', 128], ['icicle', 146], ['icicle', 165],
     ],
-    capsules: [[12, 'F'], [52, 'S'], [94, 'T'], [130, 'B'], [160, 'R']],
+    capsules: [[12, 'F'], [40, 'A'], [52, 'S'], [94, 'T'], [110, 'Z'], [130, 'B'], [160, 'R'], [175, 'M']],
   },
   {
     name: 'TRẠM NGUYỆT CẦU', sub: 'Pháo đài cuối cùng trên quỹ đạo Mặt Trăng', theme: 'moon', music: 'moon', boss: 'eye', cols: 230, gravity: 0.17,
@@ -81,6 +82,6 @@ const LEVELS = [
       ['drone', 158, 3], ['drone', 175, 4], ['drone', 190, 3],
       ['hopper', 36], ['hopper', 62], ['hopper', 88], ['hopper', 116], ['hopper', 142], ['hopper', 172],
     ],
-    capsules: [[6, 'T'], [45, 'B'], [85, 'F'], [125, 'L'], [165, 'H'], [180, 'R']],
+    capsules: [[6, 'T'], [30, 'A'], [45, 'B'], [85, 'F'], [100, 'Z'], [125, 'L'], [150, 'E'], [165, 'H'], [180, 'R'], [195, 'M']],
   },
 ];

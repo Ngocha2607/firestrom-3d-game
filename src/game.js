@@ -158,7 +158,7 @@
   function newPlayer(pr, x, y) {
     return { pr, slot: pr.slot, ci: pr.ci, x, y, w: 10, h: 22, vx: 0, vy: 0, facing: 1, aimX: 1, aimY: 0, onGround: false, crouch: false,
       coyote: 0, jumpBuf: 0, jumps: 0, dropT: 0, fireCd: 0, flash: 0, dashT: 0, dashCd: 0, invuln: 150, hp: CHARS[pr.ci].hp + DF().hpBonus, maxHp: CHARS[pr.ci].hp + DF().hpBonus,
-      anim: 0, dead: false, deadT: 0, ghost: false, gx: 0, gy: 0, reviveT: 0,
+      anim: 0, dead: false, deadT: 0, shieldT: 0, ghost: false, gx: 0, gy: 0, reviveT: 0,
       drone: CHARS[pr.ci].drone ? { x, y, fireT: 40 } : null };
   }
 
@@ -348,7 +348,7 @@
     const I = inp(p.slot), K = I.k, PR = I.p, pr = p.pr, ch = CHARS[p.ci];
     if (p.ghost) { updateGhost(p, idx); return; }
     if (p.dead) { if (--p.deadT <= 0) respawn(p, idx); return; }
-    if (p.invuln > 0) p.invuln--; if (p.fireCd > 0) p.fireCd--; if (p.flash > 0) p.flash--; if (p.dashCd > 0) p.dashCd--; if (p.dropT > 0) p.dropT--;
+    if (p.invuln > 0) p.invuln--; if (p.fireCd > 0) p.fireCd--; if (p.flash > 0) p.flash--; if (p.dashCd > 0) p.dashCd--; if (p.dropT > 0) p.dropT--; if (p.shieldT > 0) p.shieldT--;
     const hx = (K.right ? 1 : 0) - (K.left ? 1 : 0), U = K.up, D = K.down;
     if (hx && p.dashT <= 0) p.facing = hx;
     setCrouch(p, D && p.onGround && !hx && p.dashT <= 0);
@@ -405,9 +405,14 @@
       killPlayer(p);
     }
     for (const it of Lv.items) if (!it.remove && overlap(p, it)) {
-      it.remove = true; SFX.power(); addScore(500, pr);
-      if (it.kind === 'R') { pr.rapid = true; floatText(p.x + 5, p.y - 8, 'BẮN NHANH', JADE); }
-      else { pr.weapon = it.kind; floatText(p.x + 5, p.y - 8, WEAPON_NAME[it.kind], JADE); }
+      it.remove = true; SFX.power(); addScore(it.kind in SUPPORT ? 200 : 500, pr);
+      const tx = p.x + 5, ty = p.y - 8;
+      if (it.kind === 'R') { pr.rapid = true; floatText(tx, ty, 'BẮN NHANH', JADE); }
+      else if (it.kind === 'A') { p.hp = Math.min(p.hp + 1, p.maxHp + 1); floatText(tx, ty, 'GIÁP +1', VOLT); }
+      else if (it.kind === 'Z') { p.shieldT = 480; floatText(tx, ty, 'KHIÊN NĂNG LƯỢNG', '#5fd0ff'); }
+      else if (it.kind === 'M') { pr.lives++; floatText(tx, ty, '+1 MẠNG', '#ff4f86'); }
+      else if (it.kind === 'E') { chargeStorm(50); floatText(tx, ty, 'PIN BÃO LỬA', EMBER); }
+      else { pr.weapon = it.kind; floatText(tx, ty, WEAPON_NAME[it.kind], JADE); }
     }
     updateBuddy(p);
   }
@@ -428,6 +433,7 @@
 
   function hurtPlayer(p) {
     if (p.dead || p.ghost || p.invuln > 0 || p.dashT > 0) return;
+    if (p.shieldT > 0) { spark(p.x + 5, p.y + 10, '#9fe8ff'); return; }
     if (--p.hp > 0) { p.invuln = 90; SFX.hurt(); Lv.shake = 5; floatText(p.x + 5, p.y - 8, 'MẤT GIÁP', BLOOD); spark(p.x + 5, p.y + 8, VOLT); return; }
     killPlayer(p);
   }
@@ -581,6 +587,14 @@
     addScore(SCORE[e.type] || 100, own, cx, cy - 10);
     chargeStorm((SCORE[e.type] || 100) / 40);
     if (e.type === 'capsule') Lv.items.push({ x: cx - 6, y: cy, w: 12, h: 10, vx: 0, vy: -3, kind: e.weapon, life: 0 });
+    else maybeDrop(cx, cy, e.type === 'turret' ? 2 : 1);
+  }
+  // occasional support drop from a defeated enemy (more on Easy, fewer on Hard)
+  function maybeDrop(x, y, k) {
+    if (Lv.items.length >= 3) return;
+    const m = k * ({ easy: 1.5, hard: 0.6 }[DF().id] || 1), r = Math.random();
+    const kind = r < 0.035 * m ? 'A' : r < 0.05 * m ? 'Z' : r < 0.07 * m ? 'E' : null;
+    if (kind) Lv.items.push({ x: x - 6, y, w: 12, h: 10, vx: 0, vy: -3, kind, life: 0 });
   }
 
   // ---------- bosses ----------
@@ -915,6 +929,7 @@
       if (b.kind === 'wave' && frame % 3 === 0) particle(b.x, b.y + 4, -b.vx * 0.2, -Math.random(), 12, VOLT, 2);
       const box = { x: b.x - b.r + 1, y: b.y - b.r + 1, w: b.r * 2 - 2, h: b.r * 2 - 2 };
       for (const p of Lv.players) {
+        if (!p.dead && !p.ghost && p.shieldT > 0 && overlap({ x: p.x - 6, y: p.y - 6, w: p.w + 12, h: p.h + 10 }, box)) { b.dead = true; spark(b.x, b.y, '#9fe8ff'); SFX.ting(); break; }
         if (p.dead || p.ghost || p.invuln > 0 || p.dashT > 0 || !overlap(hurtbox(p), box)) continue;
         b.dead = true; hurtPlayer(p); break;
       }

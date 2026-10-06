@@ -73,6 +73,14 @@ Chọn ở sảnh chọn nhân vật (bấm nút trên màn hình, hoặc ↑ / 
 - **T** Sấm sét: tia điện đánh ngay mục tiêu phía trước và nảy sang tối đa 3 mục tiêu khác.
 - **R** Bắn nhanh: tăng tốc độ bắn cho vũ khí đang cầm.
 
+**Vật phẩm hỗ trợ** (có trong khoang tiếp tế mỗi màn; hạ địch cũng có xác suất nhỏ rơi Giáp, Khiên hoặc Pin, tháp pháo rơi nhiều hơn)
+- **Hộp giáp (+)**: +1 lớp giáp, tối đa vượt mức gốc 1 lớp; nhân vật nào cũng nhặt được.
+- **Khiên năng lượng**: bất tử 8 giây, đạn địch chạm vào bị vỡ; nhấp nháy khi sắp hết.
+- **Tim**: +1 mạng. Mỗi màn có một khoang chứa Tim ngay trước đấu trường trùm.
+- **Pin Bão Lửa**: nạp ngay 50% thanh Bão Lửa của cả đội.
+
+Lõi của khoang tiếp tế nhấp nháy theo màu của món đồ bên trong, nhìn là biết trước sẽ rơi ra gì.
+
 **Màn chơi** (5)
 1. **Cảng Neon**: mưa đêm. Trùm **Cua Thép K-9** nhảy đập đất tạo sóng xung kích.
 2. **Lò Dung Nham**: mạch nham phun lửa. Trùm **Lò Rèn Vô Cực**, lõi chỉ trúng đạn khi đang mở.

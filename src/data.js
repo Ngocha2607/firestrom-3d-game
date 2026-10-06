@@ -43,3 +43,11 @@ const DIFFS = [
   { id: 'normal', name: 'Thường', desc: '3 mạng. Độ khó cân bằng như thiết kế gốc.', lives: 3, hpBonus: 0, eFire: 1, eSpeed: 1, boss: 1, spawn: 1, score: 1 },
   { id: 'hard', name: 'Khó', desc: '2 mạng, địch bắn dày và nhanh hơn, trùm trâu hơn. Điểm ×1.5.', lives: 2, hpBonus: 0, eFire: 0.7, eSpeed: 1.25, boss: 1.35, spawn: 0.7, score: 1.5 },
 ];
+
+// support items (dropped by supply capsules and, rarely, by defeated enemies)
+const SUPPORT = {
+  A: { name: 'Giáp +1', col: '#ffd23f' },
+  Z: { name: 'Khiên năng lượng', col: '#5fd0ff' },
+  M: { name: '+1 Mạng', col: '#ff4f86' },
+  E: { name: 'Pin Bão Lửa', col: '#ff8a2a' },
+};

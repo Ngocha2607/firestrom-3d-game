@@ -144,9 +144,9 @@ const UI = (() => {
         const ghost = p && p.ghost;
         cls(node, 'ghost', !!ghost);
         html(node.querySelector('.lives'), ghost ? '' : '<i></i>'.repeat(Math.min(pr.lives, 6)) + (pr.lives > 6 ? `<em>+${pr.lives - 6}</em>` : ''));
-        const mh = p ? (p.maxHp || ch.hp) : ch.hp;
+        const mh = p ? Math.max(p.maxHp || ch.hp, p.hp || 0) : ch.hp;
         html(node.querySelector('.armor'), !ghost && mh > 1 && p && !p.dead ? Array.from({ length: mh }, (_, k) => `<i class="${k < p.hp ? 'on' : ''}"></i>`).join('') : '');
-        text(node.querySelector('.wp'), ghost ? (p.reviveT > 0 ? 'Đang hồi sinh…' : 'Đứng cạnh để cứu') : (WEAPONS[pr.weapon] || WEAPONS.P).name + (pr.rapid ? ' +' : ''));
+        text(node.querySelector('.wp'), ghost ? (p.reviveT > 0 ? 'Đang hồi sinh…' : 'Đứng cạnh để cứu') : (WEAPONS[pr.weapon] || WEAPONS.P).name + (pr.rapid ? ' +' : '') + (p && p.shieldT > 0 ? ' · Khiên ' + Math.ceil(p.shieldT / 60) + 's' : ''));
         if (!ghost) style(node.querySelector('.wp'), 'color', pr.weapon === 'P' ? '' : (WEAPONS[pr.weapon] || WEAPONS.P).col);
         cls(node.querySelector('.wp'), 'hot', !ghost && pr.weapon !== 'P');
       }
