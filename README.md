@@ -45,23 +45,33 @@ người bên trái dùng W A S D + F/G/H/R, người bên phải dùng phím m�
 
 ## Nội dung game
 
-**Nhân vật**
+**Nhân vật** (5)
 - **Rex "Thiết Giáp"**: giáp dày, chịu được 2 phát bắn mỗi mạng.
 - **Linh "Phong Vân"**: chạy nhanh nhất, nhảy được 2 lần trên không.
 - **Tobi "Kỹ Sư"**: có drone hỗ trợ tự bắn kẻ địch gần nhất.
+- **Mai "Lưu Tinh"**: xạ thủ, mọi phát bắn mạnh hơn 40% và đạn bay nhanh hơn.
+- **Bảo "Ảnh Phong"**: ninja, lướt xuyên kẻ địch gây sát thương, thời gian hồi lướt chỉ bằng một nửa.
 
-**Vũ khí** (bắn rơi các khoang bay để nhặt):
-- **S**: đạn tỏa 5 tia.
-- **L**: laser xuyên qua kẻ địch.
-- **H**: tên lửa tự tìm mục tiêu.
-- **R**: tăng tốc độ bắn.
+**Vũ khí** (bắn rơi các khoang bay để nhặt; chết sẽ mất vũ khí)
+- **S** Đạn tỏa: 5 tia.
+- **L** Laser: xuyên qua kẻ địch, xuyên cả khiên.
+- **H** Tên lửa: tự tìm mục tiêu.
+- **F** Súng lửa: tầm ngắn, phun liên tục, xuyên nhiều kẻ địch.
+- **B** Bom chùm: ném vòng cung, nổ lan, rồi bắn ra 4 bom con.
+- **T** Sấm sét: tia điện đánh ngay mục tiêu phía trước và nảy sang tối đa 3 mục tiêu khác.
+- **R** Bắn nhanh: tăng tốc độ bắn cho vũ khí đang cầm.
 
-Chết sẽ mất vũ khí đang dùng.
+**Màn chơi** (5)
+1. **Cảng Neon**: mưa đêm. Trùm **Cua Thép K-9** nhảy đập đất tạo sóng xung kích.
+2. **Lò Dung Nham**: mạch nham phun lửa. Trùm **Lò Rèn Vô Cực**, lõi chỉ trúng đạn khi đang mở.
+3. **Thành Trên Mây**: đảo bay, biển mây. Trùm **Long Hạm Thiên Vân** bay lượn rồi lao sát mặt đất.
+4. **Hầm Băng**: mặt băng trơn trượt, cột băng rơi từ trên xuống khi có người đi qua. Trùm **Voi Băng MK-II** phun mảnh băng
+   và húc ngang đấu trường; khi húc vào tường nó bị choáng và làm băng rơi. Né cú húc bằng cách đứng lên bục.
+5. **Trạm Nguyệt Cầu**: trọng lực thấp (nhảy cao và xa hơn hẳn). Trùm cuối **Mắt Thần Nguyệt** có 4 tấm giáp xoay quanh
+   chặn đạn, bắn tia laser có vạch cảnh báo trước, gọi drone và bắn vòng đạn.
 
-**Màn chơi**
-1. **Cảng Neon**: trời mưa đêm. Trùm là **Cua Thép K-9**, biết nhảy đập đất tạo sóng xung kích.
-2. **Lò Dung Nham**: có mạch nham phun lửa. Trùm là **Lò Rèn Vô Cực**, lõi chỉ trúng đạn khi đang mở.
-3. **Thành Trên Mây**: đảo bay trên biển mây. Trùm là **Long Hạm Thiên Vân**, rồng bay lượn rồi lao sát mặt đất.
+**Kẻ địch:** lính robot, **lính khiên** (chặn đạn bắn thẳng từ phía trước; bắn từ trên cao, từ phía sau, hoặc dùng laser/bom/sấm sét),
+tháp pháo, drone, bọ nhảy, mạch nham, cột băng.
 
 **Cơ chế chơi đội**
 - **Bão Lửa**: cả đội tích chung một thanh năng lượng khi hạ địch. Khi đầy, bất kỳ ai bấm phím Bão Lửa sẽ gọi sấm sét đánh mọi kẻ địch trên màn hình, trừ 12% máu trùm và xoá hết đạn địch.

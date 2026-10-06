@@ -4,7 +4,6 @@
 const UI = (() => {
   const $ = (s, r = document) => r.querySelector(s);
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
-  const WEAPON_NAME = { P: 'Xung kích', S: 'Đạn tỏa', L: 'Laser', H: 'Tên lửa' };
   const pad = (n, k = 7) => String(Math.max(0, Math.floor(n))).padStart(k, '0');
   let root, el = {}, cache = new Map(), onTap = () => { };
 
@@ -86,7 +85,7 @@ const UI = (() => {
   function bannerHTML(V) {
     const G = V.G, L = V.Lv, st = V.state;
     if (st === 'victory' && G) return ['victory', `<div class="bx"><p class="k">Hoàn thành chiến dịch</p><h2>Chiến thắng</h2>
-      <p>Cua Thép, Lò Rèn và Long Hạm đều đã sụp đổ.</p>
+      <p>Cua Thép, Lò Rèn, Long Hạm, Voi Băng và Mắt Thần đều đã sụp đổ.</p>
       <ul>${G.players.map(p => `<li style="--pc:${PCOL[p.num]}"><span>P${p.num + 1} ${CHARS[p.ci].name}</span><b>${pad(p.score, 6)}</b></li>`).join('')}</ul>
       <p class="big">Đội ${pad(V.team)}</p>${V.stateT > 90 ? '<p class="cta">Bấm Bắn hoặc Enter để về màn hình chính</p>' : ''}</div>`];
     if (!L || !G) return ['', ''];
@@ -140,7 +139,8 @@ const UI = (() => {
         cls(node, 'ghost', !!ghost);
         html(node.querySelector('.lives'), ghost ? '' : '<i></i>'.repeat(Math.min(pr.lives, 6)) + (pr.lives > 6 ? `<em>+${pr.lives - 6}</em>` : ''));
         html(node.querySelector('.armor'), !ghost && ch.hp > 1 && p && !p.dead ? Array.from({ length: ch.hp }, (_, k) => `<i class="${k < p.hp ? 'on' : ''}"></i>`).join('') : '');
-        text(node.querySelector('.wp'), ghost ? (p.reviveT > 0 ? 'Đang hồi sinh…' : 'Đứng cạnh để cứu') : (WEAPON_NAME[pr.weapon] || 'Xung kích') + (pr.rapid ? ' +' : ''));
+        text(node.querySelector('.wp'), ghost ? (p.reviveT > 0 ? 'Đang hồi sinh…' : 'Đứng cạnh để cứu') : (WEAPONS[pr.weapon] || WEAPONS.P).name + (pr.rapid ? ' +' : ''));
+        if (!ghost) style(node.querySelector('.wp'), 'color', pr.weapon === 'P' ? '' : (WEAPONS[pr.weapon] || WEAPONS.P).col);
         cls(node.querySelector('.wp'), 'hot', !ghost && pr.weapon !== 'P');
       }
       cls(el.joinhint, 'show', st === 'play' && G.players.length < 4 && L.t % 480 < 240);

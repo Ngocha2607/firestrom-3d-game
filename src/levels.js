@@ -1,8 +1,9 @@
 // levels.js — stage layouts.
 // ground: [fromCol, toCol (exclusive), topRow]  — solid from topRow to the bottom of the screen
 // plats:  [col, row, length]                     — one-way platforms (drop through with ↓ + jump)
-// enemies: [kind, col, row?]  kinds: soldier | turret | hopper | drone (needs row) | geyser (sits in a gap)
-// capsules: [col, weapon]  weapons: S spread, L laser, H homing, R rapid fire
+// enemies: [kind, col, row?]  kinds: soldier | shield | turret | hopper | drone (needs row) | geyser (sits in a gap) | icicle (hangs from the top)
+// capsules: [col, weapon]  weapons: S spread, L laser, H homing, F flame, B cluster bomb, T lightning, R rapid fire
+// optional: ice (slippery ground), gravity (overrides the default 0.27)
 // The last 30 columns of every stage are the boss arena; the camera locks there.
 'use strict';
 const LEVELS = [
@@ -50,5 +51,36 @@ const LEVELS = [
       ['hopper', 52], ['hopper', 92], ['hopper', 142],
     ],
     capsules: [[8, 'L'], [60, 'S'], [114, 'H'], [162, 'R']],
+  },
+  {
+    name: 'HẦM BĂNG', sub: 'Mỏ băng vĩnh cửu dưới cực quang', theme: 'ice', music: 'ice', boss: 'mammoth', cols: 210, ice: true,
+    ground: [[0, 20, 13], [23, 34, 13], [34, 42, 11], [45, 58, 12], [58, 66, 10], [69, 80, 12], [83, 96, 13], [96, 104, 11],
+             [107, 118, 11], [121, 132, 12], [132, 140, 10], [143, 156, 12], [159, 168, 13], [168, 176, 11], [176, 210, 13]],
+    plats: [[16, 10, 4], [38, 8, 4], [61, 7, 4], [74, 9, 4], [99, 8, 4], [112, 8, 4], [135, 7, 4], [163, 10, 4], [185, 10, 4], [200, 10, 4]],
+    enemies: [
+      ['soldier', 10], ['soldier', 28], ['soldier', 50], ['soldier', 62], ['soldier', 75], ['soldier', 90], ['soldier', 100],
+      ['soldier', 113], ['soldier', 126], ['soldier', 150], ['soldier', 170],
+      ['shield', 40], ['shield', 72], ['shield', 110], ['shield', 148], ['shield', 172],
+      ['turret', 38], ['turret', 64], ['turret', 102], ['turret', 137], ['turret', 174],
+      ['drone', 55, 5], ['drone', 88, 4], ['drone', 125, 5], ['drone', 160, 4],
+      ['hopper', 30], ['hopper', 86], ['hopper', 152],
+      ['icicle', 26], ['icicle', 48], ['icicle', 53], ['icicle', 78], ['icicle', 92], ['icicle', 115], ['icicle', 128], ['icicle', 146], ['icicle', 165],
+    ],
+    capsules: [[12, 'F'], [52, 'S'], [94, 'T'], [130, 'B'], [160, 'R']],
+  },
+  {
+    name: 'TRẠM NGUYỆT CẦU', sub: 'Pháo đài cuối cùng trên quỹ đạo Mặt Trăng', theme: 'moon', music: 'moon', boss: 'eye', cols: 230, gravity: 0.17,
+    ground: [[0, 18, 12], [22, 30, 10], [34, 44, 12], [49, 56, 9], [60, 70, 11], [75, 82, 8], [86, 98, 11], [103, 110, 9],
+             [114, 124, 12], [129, 136, 8], [140, 150, 10], [155, 162, 7], [166, 176, 10], [181, 188, 12], [188, 200, 10], [200, 230, 12]],
+    plats: [[20, 7, 3], [46, 6, 3], [72, 5, 3], [100, 6, 3], [126, 5, 3], [152, 4, 3], [178, 7, 3], [192, 6, 4], [206, 8, 4], [220, 8, 4]],
+    enemies: [
+      ['soldier', 8], ['soldier', 26], ['soldier', 38], ['soldier', 64], ['soldier', 90], ['soldier', 118], ['soldier', 144], ['soldier', 170], ['soldier', 184],
+      ['shield', 52], ['shield', 92], ['shield', 132], ['shield', 168], ['shield', 195],
+      ['turret', 28], ['turret', 66], ['turret', 106], ['turret', 146], ['turret', 186],
+      ['drone', 15, 4], ['drone', 40, 3], ['drone', 58, 5], ['drone', 80, 3], ['drone', 95, 4], ['drone', 120, 3], ['drone', 138, 5],
+      ['drone', 158, 3], ['drone', 175, 4], ['drone', 190, 3],
+      ['hopper', 36], ['hopper', 62], ['hopper', 88], ['hopper', 116], ['hopper', 142], ['hopper', 172],
+    ],
+    capsules: [[6, 'T'], [45, 'B'], [85, 'F'], [125, 'L'], [165, 'H'], [180, 'R']],
   },
 ];

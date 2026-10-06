@@ -4,8 +4,9 @@
   'use strict';
   const GRAV = 0.27, JUMP = -5.7, HAZARD_Y = 246, STEP = 1000 / 60, REVIVE = 100;
   const INK = '#f3ecff', DIM = '#a39cc0', EMBER = '#ff6a3d', VOLT = '#ffd23f', JADE = '#38d6b4', BLOOD = '#ff3b4f';
-  const WEAPON_NAME = { P: 'XUNG KÍCH', S: 'ĐẠN TỎA', L: 'LASER', H: 'TÊN LỬA' };
-  const SCORE = { soldier: 100, turret: 300, drone: 150, hopper: 200, capsule: 50 };
+  const WEAPON_NAME = Object.fromEntries(Object.entries(WEAPONS).map(([k, v]) => [k, v.name.toUpperCase()]));
+  const SCORE = { soldier: 100, shield: 250, turret: 300, drone: 150, hopper: 200, capsule: 50 };
+  const grav = () => (Lv && Lv.d.gravity) || GRAV;
   const SLOT_NAME = { kb: 'BÀN PHÍM', kbA: 'BÀN PHÍM TRÁI', kbB: 'BÀN PHÍM PHẢI', touch: 'CẢM ỨNG', pad0: 'TAY CẦM 1', pad1: 'TAY CẦM 2', pad2: 'TAY CẦM 3', pad3: 'TAY CẦM 4' };
   const slotName = s => { const m = /^n(\d+):(.+)$/.exec(s); return m ? 'MÁY ' + m[1] + ' · ' + (SLOT_NAME[m[2]] || m[2]) : (SLOT_NAME[s] || s); };
 
@@ -16,7 +17,7 @@
   const sfxQueue = [], netSent = {};
   const origMusic = SFX.music;
   SFX.music = name => { curMusic = name; if (netRole !== 'guest') origMusic(name); };
-  for (const n of ['shoot', 'spread', 'laser', 'missile', 'jump', 'dash', 'hit', 'ting', 'boom', 'bigBoom', 'power', 'hurt', 'select', 'warn', 'eshot']) {
+  for (const n of ['shoot', 'spread', 'laser', 'missile', 'jump', 'dash', 'hit', 'ting', 'boom', 'bigBoom', 'power', 'hurt', 'select', 'warn', 'eshot', 'flame', 'zap', 'lob', 'crack']) {
     const f = SFX[n]; SFX['_' + n] = f;
     SFX[n] = () => { if (netRole === 'host' && sfxQueue.length < 40) sfxQueue.push(n); f(); };
   }
@@ -119,7 +120,7 @@
 
   function makeRecord(slot, ci, num) { return { slot, ci, num, lives: 3, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
   function newRun(entries) { G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i)), stage: 0, storm: 0 }; }
-  function freeChar(used) { const c = [0, 1, 2].find(i => !used.includes(i)); return c === undefined ? used.length % 3 : c; }
+  function freeChar(used) { const c = [...CHARS.keys()].find(i => !used.includes(i)); return c === undefined ? used.length % CHARS.length : c; }
 
   function lobbyJoin(slot) {
     if (lobby.length >= 4 || lobby.some(l => l.slot === slot)) return;
@@ -139,7 +140,7 @@
     return {
       i, d, cols, map, theme: d.theme,
       camX: 0, arenaX: (cols - 30) * T, groundY: last[2] * T,
-      spawns, spawnIdx: 0, enemies: [], pB: [], eB: [], parts: [], amb: [], items: [], texts: [], rings: [], trail: [], bolts: [],
+      spawns, spawnIdx: 0, enemies: [], pB: [], eB: [], parts: [], amb: [], items: [], texts: [], rings: [], trail: [], bolts: [], beams: [],
       boss: null, bossState: 'none', warnT: 0, soldierT: 200, shake: 0, introT: 170, t: 0, players: [], endT: 0, stormT: 0, flashT: 0,
     };
   }
@@ -287,16 +288,56 @@
     return [sx + p.aimX * 14, sy + p.aimY * 14];
   }
   function shot(x, y, a, sp, dmg, kind, own, o = {}) {
-    Lv.pB.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, kind, own, life: 100, pierce: !!o.pierce, homing: !!o.homing, hit: new Set() });
+    Lv.pB.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, kind, own, life: o.life || 100, g: o.g || 0, pierce: !!o.pierce, homing: !!o.homing, hit: new Set() });
+  }
+  // lightning: jitter the straight hops so the arc reads as electricity
+  function zigzag(pts) {
+    const out = [pts[0], pts[1]];
+    for (let i = 2; i < pts.length; i += 2) {
+      const x0 = pts[i - 2], y0 = pts[i - 1], x1 = pts[i], y1 = pts[i + 1], n = Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / 14));
+      for (let k = 1; k < n; k++) out.push(x0 + (x1 - x0) * k / n + (Math.random() - 0.5) * 9, y0 + (y1 - y0) * k / n + (Math.random() - 0.5) * 9);
+      out.push(x1, y1);
+    }
+    return out;
+  }
+  // T weapon: hits the nearest target in front, then jumps to up to 3 more nearby targets
+  function chainLightning(p, mx, my, dmg) {
+    const hit = new Set(), pts = [mx, my];
+    let cx = mx, cy = my, range = 170;
+    for (let k = 0; k < 4; k++) {
+      let best = null, bd = range * range;
+      const consider = (x, y, enemy, part) => {
+        const dx = x - cx, dy = y - cy;
+        if (k === 0 && dx * p.aimX + dy * p.aimY < 0) return;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = { x, y, enemy, part }; }
+      };
+      for (const e of Lv.enemies) if (!e.remove && !e.passive && !hit.has(e) && onScreen(e)) consider(e.x + e.w / 2, e.y + e.h / 2, e, null);
+      const boss = Lv.boss;
+      if (boss && boss.alive) for (const pt of bossParts(boss)) if (!pt.armored && !hit.has(pt.id)) consider(pt.x + pt.w / 2, pt.y + pt.h / 2, null, pt);
+      if (!best) break;
+      pts.push(best.x, best.y); cx = best.x; cy = best.y; range = 100;
+      if (best.part) { hit.add(best.part.id); damageBoss(Lv.boss, best.part, dmg, p.pr); }
+      else { hit.add(best.enemy); damageEnemy(best.enemy, dmg, p.pr); }
+      if (Lv.boss && !Lv.boss.alive) break;
+    }
+    if (pts.length === 2) for (let i = 1; i <= 4; i++) pts.push(mx + p.aimX * i * 18, my + p.aimY * i * 18);
+    Lv.bolts.push({ pts: zigzag(pts), life: 7, small: true });
   }
   function fire(p) {
     const pr = p.pr, rate = pr.rapid ? 0.6 : 1, [mx, my] = muzzle(p), a = Math.atan2(p.aimY, p.aimX);
+    const ch = CHARS[p.ci], mul = ch.dmgMul || 1, spd = ch.shotSpeed || 1;
     p.flash = 4;
     switch (pr.weapon) {
-      case 'S': for (const d of [-0.28, -0.14, 0, 0.14, 0.28]) shot(mx, my, a + d, 5.2, 1, 'S', pr); p.fireCd = 15 * rate; SFX.spread(); break;
-      case 'L': shot(mx, my, a, 9, 4, 'L', pr, { pierce: true }); p.fireCd = 20 * rate; SFX.laser(); break;
-      case 'H': shot(mx, my, a - 0.4, 2.6, 2, 'H', pr, { homing: true }); shot(mx, my, a + 0.4, 2.6, 2, 'H', pr, { homing: true }); p.fireCd = 18 * rate; SFX.missile(); break;
-      default: shot(mx, my, a, 6.2, 1, 'P', pr); p.fireCd = 9 * rate; SFX.shoot();
+      case 'S': for (const d of [-0.28, -0.14, 0, 0.14, 0.28]) shot(mx, my, a + d, 5.2 * spd, mul, 'S', pr); p.fireCd = 15 * rate; SFX.spread(); break;
+      case 'L': shot(mx, my, a, 9 * spd, 4 * mul, 'L', pr, { pierce: true }); p.fireCd = 20 * rate; SFX.laser(); break;
+      case 'H': shot(mx, my, a - 0.4, 2.6 * spd, 2 * mul, 'H', pr, { homing: true }); shot(mx, my, a + 0.4, 2.6 * spd, 2 * mul, 'H', pr, { homing: true }); p.fireCd = 18 * rate; SFX.missile(); break;
+      case 'F':
+        for (let i = 0; i < 2; i++) shot(mx, my, a + (Math.random() - 0.5) * 0.32, (3.6 + Math.random() * 1.4) * spd, 0.25 * mul, 'F', pr, { pierce: true, life: 20 + (Math.random() * 6 | 0) });
+        p.fireCd = 3 * rate; SFX.flame(); p.flash = 2; break;
+      case 'B': shot(mx, my, p.aimY === 0 ? a - 0.35 * p.facing : a, 4.6 * spd, 5 * mul, 'B', pr, { g: 0.16, life: 140 }); p.fireCd = 28 * rate; SFX.lob(); break;
+      case 'T': chainLightning(p, mx, my, 2 * mul); p.fireCd = 13 * rate; SFX.zap(); break;
+      default: shot(mx, my, a, 6.2 * spd, mul, 'P', pr); p.fireCd = 9 * rate; SFX.shoot();
     }
   }
 
@@ -311,7 +352,7 @@
 
     if (PR.dash && p.dashCd <= 0 && p.dashT <= 0) {
       setCrouch(p, false);
-      p.dashT = 12; p.dashCd = 42; p.vy = 0; SFX.dash();
+      p.dashT = ch.dashHit ? 14 : 12; p.dashCd = ch.dashCd || 42; p.vy = 0; p.dashHits = new Set(); SFX.dash();
       for (let i = 0; i < 6; i++) particle(p.x + p.w / 2, p.y + p.h - 2, -p.facing * Math.random() * 2, -Math.random(), 14, '#d8d2f0', 2);
     }
     if (p.dashT > 0) {
@@ -319,8 +360,9 @@
       if (p.dashT % 2 === 0) Lv.trail.push({ ci: p.ci, x: p.x + p.w / 2, y: p.y + p.h, facing: p.facing, aimX: p.aimX, aimY: p.aimY, life: 12 });
     } else {
       const target = p.crouch ? 0 : hx * ch.speed;
-      p.vx += (target - p.vx) * 0.5; if (Math.abs(p.vx) < 0.05) p.vx = 0;
-      p.vy = Math.min(p.vy + GRAV, 7);
+      const acc = Lv.d.ice && p.onGround ? 0.085 : 0.5;
+      p.vx += (target - p.vx) * acc; if (Math.abs(p.vx) < 0.05) p.vx = 0;
+      p.vy = Math.min(p.vy + grav(), 7);
     }
 
     if (PR.jump) p.jumpBuf = 7; else if (p.jumpBuf > 0) p.jumpBuf--;
@@ -336,6 +378,12 @@
     if (!K.jump && p.vy < -2.4 && p.dashT <= 0) p.vy = -2.4;
 
     physics(p, p.dropT > 0);
+    if (p.dashT > 0 && ch.dashHit && p.dashHits) {
+      const box = { x: p.x - 3, y: p.y, w: p.w + 6, h: p.h };
+      for (const e of Lv.enemies) if (!e.remove && !e.passive && !p.dashHits.has(e) && overlap(box, e)) { p.dashHits.add(e); damageEnemy(e, 4, pr); spark(e.x + e.w / 2, e.y + e.h / 2, '#ff3b4f'); }
+      const bs = Lv.boss;
+      if (bs && bs.alive) for (const pt of bossParts(bs)) if (!pt.armored && !p.dashHits.has(pt.id) && overlap(box, pt)) { p.dashHits.add(pt.id); damageBoss(bs, pt, 4, pr); }
+    }
     if (p.x < Lv.camX) { p.x = Lv.camX; if (p.vx < 0) p.vx = 0; }
     if (p.x + p.w > Lv.camX + W) p.x = Lv.camX + W - p.w;
     const b = Lv.boss;
@@ -350,7 +398,7 @@
     if (p.onGround && Math.abs(p.vx) > 0.3) p.anim++;
 
     if (p.y + p.h > HAZARD_Y) {
-      for (let i = 0; i < 10; i++) particle(p.x + p.w / 2, HAZARD_Y, (Math.random() - 0.5) * 3, -Math.random() * 3, 24, Lv.theme === 'forge' ? '#ffb43d' : '#9fc0ff', 2, 0.15);
+      for (let i = 0; i < 10; i++) particle(p.x + p.w / 2, HAZARD_Y, (Math.random() - 0.5) * 3, -Math.random() * 3, 24, Lv.theme === 'forge' ? '#ffb43d' : Lv.theme === 'moon' ? '#c8c4e0' : '#9fc0ff', 2, 0.15);
       killPlayer(p);
     }
     for (const it of Lv.items) if (!it.remove && overlap(p, it)) {
@@ -425,9 +473,11 @@
     if (s.kind === 'capsule') { const base = 40 + Math.random() * 30; list.push({ type: 'capsule', x: Lv.camX - 18, y: base, base, w: 16, h: 10, hp: 1, t: 0, weapon: s.weapon, flash: 0 }); return; }
     if (s.kind === 'drone') { list.push({ type: 'drone', x, y: s.row * T, base: s.row * T, w: 14, h: 10, hp: 2, t: Math.random() * 100, mode: 'patrol', vx: -0.8, vy: 0, fireT: 90 + Math.random() * 60, flash: 0 }); return; }
     if (s.kind === 'geyser') { list.push({ type: 'geyser', x: x + 4, y: 236, w: 8, h: 8, t: Math.floor(Math.random() * 80), passive: true }); return; }
+    if (s.kind === 'icicle') { list.push({ type: 'icicle', x: x + 8, y: 2, w: 8, h: 16, passive: true, fallT: 0 }); return; }
     const top = solidTop(s.col); if (top < 0) return;
     if (s.kind === 'turret') list.push({ type: 'turret', x, y: top * T - 12, w: 16, h: 12, hp: 6, ang: Math.PI, fireT: 60 + Math.random() * 60, flash: 0 });
     else if (s.kind === 'soldier') spawnSoldier(x, top * T - 20, -1);
+    else if (s.kind === 'shield') list.push({ type: 'shield', x, y: top * T - 20, w: 12, h: 20, hp: 5, vx: 0, vy: 0, face: -1, turnT: 0, shootT: 80 + Math.random() * 60, stopT: 0, anim: 0, flash: 0, muzzle: 0 });
     else if (s.kind === 'hopper') list.push({ type: 'hopper', x, y: top * T - 10, w: 14, h: 10, hp: 3, vx: 0, vy: 0, jumpT: 40 + Math.random() * 40, face: -1, flash: 0, onGround: true });
   }
   function enemyShot(x, y, tx, ty, sp, o = {}) {
@@ -451,9 +501,26 @@
             e.vx = e.dir * 1.05; e.face = e.dir;
             if (onScreen(e) && e.onGround && --e.shootT <= 0) { e.stopT = 26; e.shootT = 110 + Math.random() * 90; }
           }
-          e.vy = Math.min(e.vy + GRAV, 7); physics(e, false);
+          e.vy = Math.min(e.vy + grav(), 7); physics(e, false);
           if (e.hitWall && e.onGround) e.vy = -4.6;
           if (e.dir > 0 && e.x > Lv.camX + W + 80) e.remove = true;
+          break;
+        case 'shield': {
+          e.anim++; if (e.muzzle > 0) e.muzzle--;
+          if (--e.turnT <= 0) { e.turnT = 40; e.face = px < e.x ? -1 : 1; }
+          if (e.stopT > 0) {
+            e.stopT--; e.vx = 0;
+            if (e.stopT === 8 && alive) { enemyShot(e.x + e.w / 2 + e.face * 10, e.y + 8, px, py, 2.4); e.muzzle = 5; }
+          } else {
+            e.vx = onScreen(e) && Math.abs(px - e.x) > 70 ? e.face * 0.55 : 0;
+            if (onScreen(e) && e.onGround && --e.shootT <= 0) { e.stopT = 22; e.shootT = 120 + Math.random() * 80; }
+          }
+          e.vy = Math.min(e.vy + grav(), 7); physics(e, false);
+          break;
+        }
+        case 'icicle':
+          if (!e.fallT) { if (Lv.players.some(q => !q.dead && !q.ghost && Math.abs(q.x + q.w / 2 - e.x) < 34)) e.fallT = 26; }
+          else if (--e.fallT <= 0) { Lv.eB.push({ x: e.x, y: 12, vx: 0, vy: 1, g: 0.3, r: 5, kind: 'ice', life: 200 }); e.remove = true; SFX.crack(); }
           break;
         case 'turret': {
           const tx = e.x + 8, ty = e.y + 4, want = Math.atan2(py - ty, px - tx);
@@ -472,6 +539,7 @@
             if (alive && Math.abs(px - e.x) < 90 && py > e.y + 20 && Math.random() < 0.02) {
               e.mode = 'dive'; e.mt = 45; const a = Math.atan2(py - e.y, px - e.x); e.vx = Math.cos(a) * 2.4; e.vy = Math.sin(a) * 2.4;
             }
+            if (Lv.bossState !== 'none' && ((e.x < Lv.camX + 4 && e.vx < 0) || (e.x > Lv.camX + W - 18 && e.vx > 0))) e.vx = -e.vx;
           } else if (e.mode === 'dive') { e.x += e.vx; e.y += e.vy; if (--e.mt <= 0) { e.mode = 'leave'; e.vx = -1.2; e.vy = -1.4; } }
           else { e.x += e.vx; e.y += e.vy; if (e.y < -30) e.remove = true; }
           if (onScreen(e) && --e.fireT <= 0) { e.fireT = 130 + Math.random() * 60; if (alive) enemyShot(e.x + 7, e.y + 8, px, py, 2); }
@@ -481,7 +549,7 @@
             e.vx *= 0.7;
             if (--e.jumpT <= 0 && onScreen(e)) { e.face = px < e.x ? -1 : 1; e.vy = -4.3; e.vx = e.face * 1.8; e.jumpT = 45 + Math.random() * 35; }
           }
-          e.vy = Math.min(e.vy + GRAV, 7); physics(e, false);
+          e.vy = Math.min(e.vy + grav(), 7); physics(e, false);
           break;
         case 'geyser': {
           e.t++; const cyc = e.t % 130;
@@ -522,6 +590,8 @@
       b = { name: 'LÒ RÈN VÔ CỰC', x, y: gy - 170, w: 108, h: 170, hp: 170, mode: 'closed', modeT: 0, openAmt: 0, spin: 0, cx: x + 60, cy: gy - 92, rise: 170,
         turrets: [{ x: x + 2, y: gy - 146, hp: th, fireT: 40, ang: Math.PI, alive: true, flash: 0 }, { x: x + 2, y: gy - 34, hp: th, fireT: 80, ang: Math.PI, alive: true, flash: 0 }] };
     }
+    if (type === 'mammoth') b = { name: 'VOI BĂNG MK-II', x: ax + W + 10, y: gy - 54, w: 104, h: 54, hp: 200, vx: 0, vy: 0, mode: 'enter', modeT: 0, face: -1, shootT: 80, cycles: 0, targetX: ax + W - 150 };
+    if (type === 'eye') b = { name: 'MẮT THẦN NGUYỆT', cx: ax + W + 80, cy: 70, hp: 300, mode: 'enter', modeT: 0, rot: 0, beamT: 120, spawnT: 300, ringT: 90, lookX: ax + W / 2, lookY: 150 };
     if (type === 'serpent') b = { name: 'LONG HẠM THIÊN VÂN', hp: 240, hx: ax + W + 60, hy: 60, pt: 0, mode: 'fly', modeT: 0, hist: [], segs: [], fireT: 90, bombT: 120, face: -1, jaw: 0 };
     b.hp = Math.round(b.hp * mult);
     Object.assign(b, { type, maxHp: b.hp, t: 0, flash: 0, alive: true, dying: 0 });
@@ -530,6 +600,13 @@
 
   function bossParts(b) {
     if (b.type === 'crab') return [{ x: b.x + 6, y: b.y + 4, w: b.w - 12, h: b.h - 8, id: 'body' }];
+    if (b.type === 'mammoth') return [{ x: b.x + 8, y: b.y + 4, w: b.w - 16, h: b.h - 8, id: 'body' }];
+    if (b.type === 'eye') {
+      const arr = [];
+      for (let i = 0; i < 4; i++) { const a = b.rot + i * Math.PI / 2; arr.push({ x: b.cx + Math.cos(a) * 46 - 12, y: b.cy + Math.sin(a) * 46 - 12, w: 24, h: 24, id: 'plate' + i, armored: true }); }
+      arr.push({ x: b.cx - 24, y: b.cy - 24, w: 48, h: 48, id: 'core' });
+      return arr;
+    }
     if (b.type === 'core') {
       const oy = b.rise, arr = [{ x: b.cx - 20, y: b.cy - 20 + oy, w: 40, h: 40, id: 'core', armored: b.openAmt < 0.8 }];
       b.turrets.forEach((tr, i) => { if (tr.alive) arr.push({ x: tr.x - 10, y: tr.y - 9 + oy, w: 20, h: 18, id: 't' + i, tur: tr }); });
@@ -548,14 +625,15 @@
     b.hp -= dmg; b.flash = 3; SFX.hit();
     if (!fromStorm) chargeStorm(dmg * 0.3);
     if (b.hp <= 0) {
-      b.hp = 0; b.alive = false; b.dying = 160; Lv.eB = []; Lv.bossState = 'dying';
+      b.hp = 0; b.alive = false; b.dying = 160; Lv.eB = []; Lv.beams = []; Lv.bossState = 'dying';
       SFX.bigBoom(); Lv.shake = 12; addScore(10000, own);
     }
   }
 
   function bossCenter(b) {
-    if (b.type === 'crab') return [b.x + b.w / 2, b.y + b.h / 2];
+    if (b.type === 'crab' || b.type === 'mammoth') return [b.x + b.w / 2, b.y + b.h / 2];
     if (b.type === 'core') return [b.cx, b.cy + b.rise];
+    if (b.type === 'eye') return [b.cx, b.cy];
     return [b.hx, b.hy];
   }
 
@@ -608,6 +686,73 @@
         b.vy = 0;
       }
       hitPlayers({ x: b.x + 4, y: b.y + 6, w: b.w - 8, h: b.h - 6 });
+    }
+
+    else if (b.type === 'mammoth') {
+      const cx = b.x + b.w / 2, ph2 = b.hp < b.maxHp * 0.5;
+      const pickTarget = () => { b.targetX = ax + 20 + Math.random() * (W - b.w - 40); };
+      b.modeT++;
+      if (b.mode === 'enter') { b.vx = -1; if (b.x <= b.targetX) { b.mode = 'walk'; b.modeT = 0; pickTarget(); } }
+      else if (b.mode === 'walk') {
+        b.face = px < cx ? -1 : 1;
+        const d = b.targetX - b.x; b.vx = Math.abs(d) < 2 ? 0 : Math.sign(d) * (ph2 ? 1.3 : 0.9);
+        if (--b.shootT <= 0) {
+          b.shootT = ph2 ? 55 : 80;
+          if (alive) {
+            const ox = cx + b.face * 48, oy = b.y + 22, n = ph2 ? 5 : 3;
+            for (let i = 0; i < n; i++) Lv.eB.push({ x: ox, y: oy, vx: (px - ox) / 55 + (i - (n - 1) / 2) * 0.55, vy: -3.6 - Math.random() * 0.6, g: 0.13, r: 4, kind: 'ice', life: 300 });
+            SFX.eshot();
+          }
+        }
+        if (Math.abs(d) < 2 || b.modeT > 160) { b.cycles++; b.modeT = 0; if (b.cycles % 2 === 0) { b.mode = 'windup'; b.vx = 0; SFX.warn(); } else pickTarget(); }
+      } else if (b.mode === 'windup') {
+        b.vx = 0; b.face = px < cx ? -1 : 1;
+        if (b.modeT % 5 === 0) particle(cx - b.face * 40, b.y + 8, -b.face * Math.random(), -Math.random() * 1.5, 30, '#dff4ff', 3, -0.01);
+        if (b.modeT > 48) { b.mode = 'charge'; b.modeT = 0; }
+      } else if (b.mode === 'charge') {
+        b.vx = b.face * (ph2 ? 5.2 : 4.4);
+        if (b.modeT % 3 === 0) particle(cx - b.face * 50, gy - 2, -b.face * 2, -Math.random() * 2, 22, '#e8f6ff', 2, 0.1);
+        if ((b.face < 0 && b.x <= ax + 6) || (b.face > 0 && b.x >= ax + W - b.w - 6)) {
+          b.mode = 'stun'; b.modeT = 0; b.vx = 0; Lv.shake = 12; SFX.boom();
+          for (let i = 0; i < (ph2 ? 9 : 6); i++) Lv.eB.push({ x: ax + 20 + Math.random() * (W - 40), y: -10 - Math.random() * 40, vx: 0, vy: 0, g: 0.22, r: 5, kind: 'ice', life: 300 });
+        }
+      } else if (b.mode === 'stun') { b.vx = 0; if (b.modeT > 75) { b.mode = 'walk'; b.modeT = 0; pickTarget(); } }
+      b.x += b.vx;
+      if (b.mode !== 'enter') b.x = clamp(b.x, ax + 4, ax + W - b.w - 4);
+      b.y = gy - b.h;
+      hitPlayers({ x: b.x + 8, y: b.y + 10, w: b.w - 16, h: b.h - 10 });
+    }
+
+    else if (b.type === 'eye') {
+      const ph2 = b.hp < b.maxHp * 0.5;
+      b.modeT++;
+      const tx = ax + W / 2 + 40 + Math.cos(b.t * 0.008) * 110, ty = 74 + Math.sin(b.t * 0.016) * 26;
+      b.cx += (tx - b.cx) * (b.mode === 'enter' ? 0.03 : 0.04); b.cy += (ty - b.cy) * 0.04;
+      if (b.mode === 'enter' && b.modeT > 90) b.mode = 'fight';
+      b.rot += ph2 ? 0.03 : 0.018;
+      b.lookX += (px - b.lookX) * 0.1; b.lookY += (py - b.lookY) * 0.1;
+      if (b.mode === 'fight') {
+        if (--b.beamT <= 0) {
+          b.beamT = ph2 ? 150 : 210;
+          const targets = alivePlayers(), shots = ph2 ? 2 : 1;
+          for (let k = 0; k < shots && targets.length; k++) {
+            const tg = targets[k % targets.length];
+            let a = Math.atan2(tg.y + tg.h / 2 - b.cy, tg.x + tg.w / 2 - b.cx);
+            if (k > 0 && targets.length === 1) a += 0.35;
+            Lv.beams.push({ x1: b.cx, y1: b.cy, a, len: 640, warn: 50, fire: 22 });
+          }
+          SFX.warn();
+        }
+        if (--b.spawnT <= 0) {
+          b.spawnT = 420;
+          if (Lv.enemies.filter(e => e.type === 'drone').length < 3) for (const sd of [-1, 1]) Lv.enemies.push({ type: 'drone', x: b.cx + sd * 30, y: b.cy, base: b.cy + 20 + Math.random() * 40, w: 14, h: 10, hp: 2, t: 0, mode: 'patrol', vx: sd * 0.8, vy: 0, fireT: 80, flash: 0 });
+        }
+        if (ph2 && --b.ringT <= 0) {
+          b.ringT = 100;
+          for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + b.rot; Lv.eB.push({ x: b.cx, y: b.cy, vx: Math.cos(a) * 1.7, vy: Math.sin(a) * 1.7, r: 3, kind: 'orb', g: 0, life: 400 }); }
+        }
+      }
+      hitPlayers({ x: b.cx - 22, y: b.cy - 22, w: 44, h: 44 });
     }
 
     else if (b.type === 'core') {
@@ -678,6 +823,34 @@
   }
 
   // ---------- bullets ----------
+  function blast(x, y, rad, dmg, own) {
+    boom(x, y, rad / 22);
+    for (const e of Lv.enemies) {
+      if (e.remove || e.passive) continue;
+      const dx = e.x + e.w / 2 - x, dy = e.y + e.h / 2 - y, rr = rad + Math.max(e.w, e.h) / 2;
+      if (dx * dx + dy * dy < rr * rr) damageEnemy(e, dmg, own);
+    }
+    const boss = Lv.boss;
+    if (boss && boss.alive) for (const pt of bossParts(boss)) {
+      if (pt.armored) continue;
+      const cx = clamp(x, pt.x, pt.x + pt.w), cy = clamp(y, pt.y, pt.y + pt.h);
+      if ((cx - x) ** 2 + (cy - y) ** 2 < rad * rad) { damageBoss(boss, pt, dmg, own); if (!boss.alive) break; }
+    }
+  }
+  // B weapon: the bomb bursts, then four bomblets arc out and burst again
+  function explodeBomb(b) {
+    b.dead = true;
+    if (b.kind === 'B') {
+      blast(b.x, b.y, 30, b.dmg, b.own);
+      for (let i = 0; i < 4; i++) shot(b.x, b.y - 4, -Math.PI / 2 + (i - 1.5) * 0.45, 3.2, b.dmg * 0.4, 'b', b.own, { g: 0.18, life: 70 });
+    } else blast(b.x, b.y, 18, b.dmg, b.own);
+  }
+  const isBomb = b => b.kind === 'B' || b.kind === 'b';
+  const segDist = (px, py, x1, y1, x2, y2) => {
+    const dx = x2 - x1, dy = y2 - y1, k = clamp(((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+    return Math.hypot(px - (x1 + dx * k), py - (y1 + dy * k));
+  };
+
   function nearestTarget(x, y, range = 260) {
     let best = null, bd = range * range;
     for (const e of Lv.enemies) {
@@ -687,6 +860,7 @@
     }
     const b = Lv.boss;
     if (b && b.alive) for (const pt of bossParts(b)) {
+      if (pt.armored && b.type === 'eye') continue;
       const cx = pt.x + pt.w / 2, cy = pt.y + pt.h / 2, dx = cx - x, dy = cy - y, d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = { x: cx, y: cy }; }
     }
@@ -696,7 +870,8 @@
 
   function updateBullets() {
     for (const b of Lv.pB) {
-      if (--b.life <= 0) { b.dead = true; continue; }
+      if (--b.life <= 0) { if (isBomb(b)) explodeBomb(b); b.dead = true; continue; }
+      if (b.g) b.vy += b.g;
       if (b.homing) {
         const tg = nearestTarget(b.x, b.y);
         let cur = Math.atan2(b.vy, b.vx); const sp = Math.min(5.5, Math.hypot(b.vx, b.vy) + 0.15);
@@ -706,15 +881,20 @@
       }
       b.x += b.vx; b.y += b.vy;
       if (b.x < Lv.camX - 20 || b.x > Lv.camX + W + 20 || b.y < -20 || b.y > H + 20) { b.dead = true; continue; }
-      if (tileAt(Math.floor(b.x / T), Math.floor(b.y / T)) === 1) { b.dead = true; spark(b.x, b.y); continue; }
+      if (tileAt(Math.floor(b.x / T), Math.floor(b.y / T)) === 1) { if (isBomb(b)) explodeBomb(b); else spark(b.x, b.y); b.dead = true; continue; }
       for (const e of Lv.enemies) {
         if (e.remove || e.passive || b.hit.has(e) || !hitsBox(b, e)) continue;
+        if (isBomb(b)) { explodeBomb(b); break; }
+        if (e.type === 'shield' && b.kind !== 'L' && Math.sign(b.vx) === -e.face && Math.abs(b.vx) > Math.abs(b.vy) * 0.5) {
+          b.dead = true; spark(b.x, b.y, '#9fd8ff'); SFX.ting(); break;
+        }
         damageEnemy(e, b.dmg, b.own);
         if (b.pierce) b.hit.add(e); else { b.dead = true; spark(b.x, b.y); if (b.kind === 'H') boom(b.x, b.y, 0.5, true); break; }
       }
       const boss = Lv.boss;
       if (!b.dead && boss && boss.alive) for (const pt of bossParts(boss)) {
         if (b.hit.has(pt.id) || !hitsBox(b, pt)) continue;
+        if (isBomb(b)) { explodeBomb(b); break; }
         if (pt.armored) { b.dead = true; spark(b.x, b.y, '#cfd3e6'); SFX.ting(); break; }
         damageBoss(boss, pt, b.dmg, b.own);
         if (b.pierce) b.hit.add(pt.id); else { b.dead = true; spark(b.x, b.y); if (b.kind === 'H') boom(b.x, b.y, 0.5, true); }
@@ -727,7 +907,7 @@
       b.vy += b.g; b.x += b.vx; b.y += b.vy;
       if (--b.life <= 0 || b.x < Lv.camX - 40 || b.x > Lv.camX + W + 40 || b.y > H + 20 || b.y < -60) { b.dead = true; continue; }
       if (b.kind !== 'fire' && b.kind !== 'wave' && tileAt(Math.floor(b.x / T), Math.floor(b.y / T)) === 1) {
-        b.dead = true; if (b.kind === 'bomb') boom(b.x, b.y - 4, 0.8); else spark(b.x, b.y, '#ff8a9a'); continue;
+        b.dead = true; if (b.kind === 'bomb') boom(b.x, b.y - 4, 0.8); else spark(b.x, b.y, b.kind === 'ice' ? '#d8f4ff' : '#ff8a9a'); continue;
       }
       if (b.kind === 'wave' && frame % 3 === 0) particle(b.x, b.y + 4, -b.vx * 0.2, -Math.random(), 12, VOLT, 2);
       const box = { x: b.x - b.r + 1, y: b.y - b.r + 1, w: b.r * 2 - 2, h: b.r * 2 - 2 };
@@ -803,6 +983,15 @@
 
     updateEnemies();
     if (L.boss) updateBoss(L.boss);
+    for (const bm of L.beams) {
+      const eb = L.boss;
+      if (eb && eb.type === 'eye' && eb.alive) { bm.x1 = eb.cx; bm.y1 = eb.cy; }
+      if (bm.warn > 0) { bm.warn--; continue; }
+      if (bm.fire-- === 22) { SFX.laser(); L.shake = Math.max(L.shake, 6); }
+      const x2 = bm.x1 + Math.cos(bm.a) * bm.len, y2 = bm.y1 + Math.sin(bm.a) * bm.len;
+      for (const p of L.players) if (!p.dead && !p.ghost && segDist(p.x + p.w / 2, p.y + p.h / 2, bm.x1, bm.y1, x2, y2) < 10) hurtPlayer(p);
+    }
+    L.beams = L.beams.filter(bm => bm.warn > 0 || bm.fire > 0);
     updateBullets();
     updateItems();
     L.enemies = L.enemies.filter(e => !e.remove);
@@ -828,8 +1017,8 @@
       const P = inputs[id].p, i = lobby.findIndex(l => l.slot === id), l = lobby[i];
       if (!l) { if (P.fire || P.jump || P.start) lobbyJoin(id); continue; }
       if (!l.ready) {
-        if (P.left) { l.ci = (l.ci + 2) % 3; SFX.select(); }
-        if (P.right) { l.ci = (l.ci + 1) % 3; SFX.select(); }
+        if (P.left) { l.ci = (l.ci + CHARS.length - 1) % CHARS.length; SFX.select(); }
+        if (P.right) { l.ci = (l.ci + 1) % CHARS.length; SFX.select(); }
         if ((P.fire || P.jump || P.start) && stateT > 8) { l.ready = true; SFX.power(); }
         else if (P.dash) { lobby.splice(i, 1); SFX.select(); }
       } else if (P.dash) { l.ready = false; SFX.select(); }
@@ -937,7 +1126,7 @@
       s.lv = {
         i: L.i, camX: L.camX, t: L.t, shake: L.shake, introT: L.introT, bossState: L.bossState, warnT: L.warnT, stormT: L.stormT, flashT: L.flashT,
         players: L.players.map(p => { const { pr, ...o } = p; o.num = pr.num; return o; }),
-        enemies: L.enemies, pB: L.pB.map(q => ({ x: q.x, y: q.y, vx: q.vx, vy: q.vy, kind: q.kind })), eB: L.eB, items: L.items,
+        enemies: L.enemies, pB: L.pB.map(q => ({ x: q.x, y: q.y, vx: q.vx, vy: q.vy, kind: q.kind, life: q.life })), beams: L.beams, eB: L.eB, items: L.items,
         parts: L.parts.slice(-350), texts: L.texts, rings: L.rings, trail: L.trail, bolts: L.bolts,
         boss: b ? (({ hist, ...o }) => o)(b) : null,
       };

@@ -102,10 +102,25 @@ const MODELS = (() => {
       mesh(B(0.24, 0.08, 0.05), M(glow(p.visor)), -0.02, 0.26, 0, head);
       mesh(B(0.18, 0.2, 0.46), dark, -0.1, 0.32, 0, torso);
     }
-    if (id === 'linh') {
-      mesh(B(0.12, 0.3, 0.12), dark, -0.24, -0.08, 0, head);
+    if (id === 'linh') mesh(B(0.12, 0.3, 0.12), dark, -0.24, -0.08, 0, head);
+    if (p.scarf) {
       const sm = M(std(p.scarf, { r: 0.5, m: 0.1 }));
       for (let i = 0; i < 7; i++) scarf.push(mesh(B(0.14, 0.09, 0.16 - i * 0.012), sm, 0, 0, 0, torso));
+    }
+    if (id === 'mai') {
+      const hair = M(std(p.hair, { r: 0.7, m: 0.05 }));
+      mesh(B(0.46, 0.12, 0.44), hair, -0.02, 0.22, 0, head);
+      mesh(B(0.14, 0.62, 0.38), hair, -0.25, -0.16, 0, head);
+      mesh(B(0.12, 0.46, 0.44), dark, -0.25, -0.14, 0, torso);
+      mesh(B(0.16, 0.05, 0.05), M(glow(p.visor)), 0.12, 0.27, 0.2, head);
+    }
+    if (id === 'bao') {
+      mesh(B(0.44, 0.16, 0.42), dark, 0, 0.17, 0, head);
+      mesh(B(0.16, 0.16, 0.4), dark, 0.13, -0.1, 0, head);
+      const blade = group(torso, -0.26, 0.42, -0.05); blade.rotation.z = 0.75;
+      mesh(B(0.05, 1.05, 0.06), gunMat, 0, 0.25, 0, blade);
+      mesh(B(0.07, 0.24, 0.09), M(std(p.scarf, { r: 0.6 })), 0, -0.35, 0, blade);
+      mesh(B(0.16, 0.04, 0.12), trim, 0, -0.22, 0, blade);
     }
     // arms: the gun arm sits on the camera side (+z), the support arm behind
     const backArm = group(torso, 0.02, 0.5, -0.3 * k);
@@ -118,7 +133,12 @@ const MODELS = (() => {
     mesh(B(0.3, 0.05, 0.13), gunMat, 0.2, 0.09, 0, gun);
     const barrel = mesh(CY(0.045, 0.045, 0.32, 8), gunMat, 0.56, 0.01, 0, gun); barrel.rotation.z = Math.PI / 2;
     mesh(B(0.04, 0.05, 0.14), M(glow(p.visor)), 0.05, 0.04, 0, gun);
-    const flash = group(gun, 0.8, 0.01, 0);
+    if (id === 'mai') {
+      const lb = mesh(CY(0.035, 0.035, 0.4, 8), gunMat, 0.88, 0.01, 0, gun); lb.rotation.z = Math.PI / 2;
+      mesh(B(0.24, 0.08, 0.08), trim, 0.24, 0.15, 0, gun);
+      mesh(B(0.02, 0.06, 0.06), M(glow(p.visor)), 0.37, 0.15, 0, gun);
+    }
+    const flash = group(gun, id === 'mai' ? 1.1 : 0.8, 0.01, 0);
     const fm = glow('#fff2a8', { add: true });
     for (let i = 0; i < 2; i++) { const pl = mesh(new THREE.PlaneGeometry(0.55, 0.26), fm, 0, 0, 0, flash, false); pl.rotation.x = i * Math.PI / 2; }
     mesh(S(0.12, 8, 6), fm, -0.08, 0, 0, flash, false);
@@ -168,8 +188,8 @@ const MODELS = (() => {
   }
 
   // ---------- enemies ----------
-  function soldier() {
-    const metal = std('#5d6a8c', { m: 0.6, r: 0.35 }), dm = std('#262b3d', { m: 0.5, r: 0.5 }), lm = std('#a3b0d0', { m: 0.6, r: 0.3 });
+  function soldier(withShield) {
+    const metal = std(withShield ? '#4a6a8c' : '#5d6a8c', { m: 0.6, r: 0.35 }), dm = std('#262b3d', { m: 0.5, r: 0.5 }), lm = std('#a3b0d0', { m: 0.6, r: 0.3 });
     const root = new THREE.Group(), hips = group(root, 0, 0.62, 0), legs = [];
     for (const z of [-0.12, 0.12]) {
       const th = group(hips, 0, 0, z); mesh(B(0.16, 0.34, 0.16), z < 0 ? dm : metal, 0, -0.16, 0, th);
@@ -187,6 +207,14 @@ const MODELS = (() => {
     const arm = group(torso, 0.02, 0.38, 0.24);
     mesh(B(0.3, 0.12, 0.12), dm, 0.12, 0, 0, arm); mesh(B(0.55, 0.11, 0.1), dm, 0.42, 0.02, 0, arm); mesh(B(0.14, 0.04, 0.11), glow('#ff6070'), 0.3, 0.08, 0, arm);
     const fl = mesh(S(0.13, 8, 6), glow('#ffb0b8', { add: true }), 0.76, 0.02, 0, arm, false); fl.visible = false;
+    if (withShield) {
+      const sh = group(torso, 0.36, 0.2, 0.02);
+      mesh(B(0.09, 1.0, 0.62), std('#2f4f7a', { m: 0.75, r: 0.25 }), 0, 0, 0, sh);
+      mesh(B(0.1, 0.06, 0.52), glow('#5fd0ff'), 0.01, 0.32, 0, sh, false);
+      mesh(B(0.1, 0.06, 0.52), glow('#5fd0ff'), 0.01, -0.32, 0, sh, false);
+      mesh(B(0.1, 0.14, 0.14), glow('#ffd23f'), 0.01, 0.05, 0, sh, false);
+      mesh(B(0.44, 0.14, 0.42), lm, 0, 0.5, 0, torso);
+    }
     prepFlash(root);
     root.userData.animate = (e, t) => {
       face(root, e.face);
@@ -291,7 +319,7 @@ const MODELS = (() => {
     return root;
   }
 
-  const POWER_COL = { S: '#ff6a3d', L: '#38d6b4', H: '#c18af0', R: '#ffd23f' };
+  const POWER_COL = Object.fromEntries(Object.entries(WEAPONS).map(([k, v]) => [k, v.col]));
   function power(kind) {
     const col = POWER_COL[kind] || '#ffd23f';
     const root = new THREE.Group(), spin = group(root, 0, 0.35, 0);
@@ -458,6 +486,112 @@ const MODELS = (() => {
     return root;
   }
 
+  function icicle() {
+    const ice = std('#cdeeff', { m: 0.1, r: 0.12, ec: '#2a7ab0' }); ice.emissiveIntensity = 0.5;
+    const root = new THREE.Group(), body = group(root);
+    const c = mesh(CO(0.3, 1.2, 6), ice, 0, -0.6, 0, body); c.rotation.x = Math.PI;
+    const c2 = mesh(CO(0.16, 0.7, 5), ice, 0.22, -0.35, 0.05, body); c2.rotation.x = Math.PI;
+    const c3 = mesh(CO(0.14, 0.6, 5), ice, -0.2, -0.3, -0.05, body); c3.rotation.x = Math.PI;
+    root.userData.animate = (e, t) => {
+      const shake = e.fallT > 0 ? (Math.random() - 0.5) * 0.12 : 0;
+      body.position.x = shake; body.rotation.z = shake;
+    };
+    return root;
+  }
+
+  function mammoth() {
+    const armor = std('#c8d8ec', { m: 0.6, r: 0.3 }), dark = std('#3a4a66', { m: 0.6, r: 0.4 }), snow = std('#f4f9ff', { r: 0.9, m: 0 });
+    const tusk = std('#fff4dc', { r: 0.35, m: 0.1 }), glowC = glow('#5fe0ff');
+    const root = new THREE.Group(), body = group(root, 0, 2.15, 0);
+    const torso = mesh(S(1, 20, 14), armor, 0, 0, 0, body); torso.scale.set(2.8, 1.3, 1.55);
+    const back = mesh(S(1, 16, 10), snow, -0.3, 0.8, 0, body); back.scale.set(2.2, 0.55, 1.2);
+    for (let i = 0; i < 4; i++) mesh(B(0.5, 0.18, 2.2), dark, -1.6 + i * 1.0, 0.25, 0, body);
+    for (let i = 0; i < 3; i++) mesh(B(0.6, 0.08, 0.06), glowC, -1.2 + i * 1.0, -0.2, 1.52, body, false);
+    for (const x of [-1.2, -0.4]) mesh(CY(0.18, 0.22, 0.6, 8), dark, x, 1.25, 0.3, body);
+    const legs = [];
+    for (const x of [-1.7, 1.5]) for (const z of [-0.85, 0.85]) {
+      const L = group(root, x, 1.5, z);
+      mesh(CY(0.48, 0.42, 1.5, 10), x > 0 ? armor : dark, 0, -0.75, 0, L);
+      mesh(CY(0.55, 0.55, 0.22, 10), dark, 0, -1.4, 0, L);
+      legs.push({ L, x, z });
+    }
+    const head = group(body, 2.7, 0.35, 0);
+    mesh(B(1.3, 1.3, 1.25), armor, 0, 0, 0, head);
+    mesh(B(1.35, 0.35, 1.3), dark, 0, 0.55, 0, head);
+    for (const z of [-0.35, 0.35]) mesh(B(0.08, 0.14, 0.22), glowC, 0.66, 0.2, z, head, false);
+    for (const z of [-1, 1]) {
+      const ear = mesh(CY(0.75, 0.75, 0.12, 14), armor, -0.4, 0.1, z * 0.72, head); ear.rotation.x = Math.PI / 2;
+      const t1 = mesh(CO(0.13, 1.5, 6), tusk, 0.85, -0.65, z * 0.45, head); t1.rotation.z = -1.9;
+    }
+    const trunk = [];
+    let parent = group(head, 0.62, -0.35, 0);
+    for (let i = 0; i < 5; i++) {
+      const seg = group(parent, i === 0 ? 0 : 0, i === 0 ? 0 : -0.32, 0);
+      mesh(CY(0.2 - i * 0.025, 0.22 - i * 0.025, 0.34, 8), i % 2 ? dark : armor, 0, -0.16, 0, seg);
+      trunk.push(seg); parent = seg;
+    }
+    prepFlash(root);
+    root.userData.animate = (b, t) => {
+      face(root, b.face, 0.2);
+      const walk = b.vx ? t * (b.mode === 'charge' ? 0.5 : 0.2) : 0, charge = b.mode === 'charge';
+      legs.forEach((l, i) => {
+        const ph = walk + (i % 2 ? Math.PI : 0) + (l.x > 0 ? Math.PI / 2 : 0);
+        l.L.rotation.z = b.vx ? Math.sin(ph) * (charge ? 0.45 : 0.25) : 0;
+      });
+      body.position.y = 2.15 + (b.vx ? Math.abs(Math.sin(walk)) * 0.08 : 0) + (b.mode === 'windup' ? Math.sin(t * 0.6) * 0.05 : 0);
+      body.rotation.z = charge ? -0.12 : b.mode === 'stun' ? 0.08 : 0;
+      head.rotation.z = charge ? -0.25 : b.mode === 'windup' ? 0.25 : 0;
+      trunk.forEach((sg, i) => { sg.rotation.z = (b.mode === 'walk' && b.shootT < 14 ? 0.5 : Math.sin(t * 0.08 + i * 0.6) * 0.18) + (charge ? 0.25 : 0); });
+      setFlash(root, b.flash > 0 && t % 6 < 2, 0.4);
+    };
+    return root;
+  }
+
+  function eye() {
+    const metal = std('#2a2840', { m: 0.8, r: 0.3 }), metal2 = std('#4a4766', { m: 0.8, r: 0.25 });
+    const ball = std('#e8e4f4', { m: 0.15, r: 0.25, ec: '#6a4aa8' }); ball.emissiveIntensity = 0.25;
+    const root = new THREE.Group();
+    mesh(S(1.5, 28, 20), ball, 0, 0, 0, root);
+    const frame = mesh(new THREE.TorusGeometry(1.95, 0.22, 10, 36), metal, 0, 0, 0, root);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, sp = mesh(CO(0.16, 0.6, 5), metal2, Math.cos(a) * 2.3, Math.sin(a) * 2.3, 0, root); sp.rotation.z = a - Math.PI / 2; }
+    const look = group(root);
+    const iris = mesh(new THREE.CircleGeometry(0.72, 32), glow('#c040ff'), 0, 0, 1.47, look, false);
+    const ring = mesh(new THREE.TorusGeometry(0.72, 0.06, 6, 32), glow('#ff6ad5'), 0, 0, 1.48, look, false);
+    mesh(new THREE.CircleGeometry(0.32, 24), new THREE.MeshBasicMaterial({ color: '#05030a' }), 0, 0, 1.5, look, false);
+    const halo = mesh(S(2.4, 18, 12), glow('#a040ff', { add: true, op: 0.12 }), 0, 0, -0.3, root, false);
+    const plates = [];
+    for (let i = 0; i < 4; i++) {
+      const g = group(root);
+      mesh(B(1.45, 1.45, 0.5), metal2, 0, 0, 0, g);
+      mesh(B(1.5, 0.08, 0.52), glow('#ff6ad5'), 0, 0.68, 0, g, false);
+      mesh(B(0.3, 0.3, 0.55), glow('#7ab8ff'), 0, 0, 0.05, g, false);
+      plates.push(g);
+    }
+    const cables = [];
+    for (let i = 0; i < 5; i++) { const c = group(root, -1.2 + i * 0.6, -1.4, -0.3); mesh(CY(0.07, 0.04, 2.4, 6), metal, 0, -1.2, 0, c); cables.push(c); }
+    prepFlash(root);
+    const v = new THREE.Vector3();
+    root.userData.animate = (b, t, toW) => {
+      const c = toW(b.cx, b.cy), lk = toW(b.lookX, b.lookY);
+      root.position.set(c.x, c.y, -0.4);
+      v.set(lk.x - c.x, lk.y - c.y, 6).normalize();
+      look.rotation.set(-v.y * 0.45, v.x * 0.45, 0);
+      const ph2 = b.hp < b.maxHp * 0.5;
+      iris.material.color.set(ph2 ? '#ff2a4a' : '#c040ff');
+      ring.scale.setScalar(1 + Math.sin(t * 0.2) * 0.06);
+      halo.scale.setScalar(1 + Math.sin(t * 0.07) * 0.08);
+      frame.rotation.z = -t * 0.01;
+      plates.forEach((g, i) => {
+        const a = b.rot + i * Math.PI / 2;
+        g.position.set(Math.cos(a) * 46 / 16, -Math.sin(a) * 46 / 16, 0.4);
+        g.rotation.z = -a;
+      });
+      cables.forEach((cb, i) => { cb.rotation.z = Math.sin(t * 0.04 + i) * 0.25; });
+      setFlash(root, b.flash > 0 && t % 6 < 2, 0.4);
+    };
+    return root;
+  }
+
   // ---------- props ----------
   function pedestal(color) {
     const root = new THREE.Group();
@@ -468,5 +602,5 @@ const MODELS = (() => {
     return root;
   }
 
-  return { hero, soldier, turret, drone, hopper, capsule, power, crab, core, serpent, pedestal, face, glow, std, mesh, group, B, S, CY, CO, placeStrut };
+  return { hero, soldier, turret, drone, hopper, capsule, power, crab, core, serpent, icicle, mammoth, eye, pedestal, face, glow, std, mesh, group, B, S, CY, CO, placeStrut };
 })();
