@@ -6,7 +6,7 @@ const UI = (() => {
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
   const pad = (n, k = 7) => String(Math.max(0, Math.floor(n))).padStart(k, '0');
   const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let root, el = {}, cache = new Map(), onTap = () => { }, onDiff = () => { }, onMode = () => { };
+  let root, el = {}, cache = new Map(), onTap = () => { }, onDiff = () => { }, onMode = () => { }, onStart = () => { };
 
   function set(node, key, val, fn) {
     const k = node.__id + key;
@@ -19,8 +19,8 @@ const UI = (() => {
   const cls = (node, c, on) => { id(node); set(node, 'c' + c, on, x => node.classList.toggle(c, x)); };
   const style = (node, p, v) => { id(node); set(node, 's' + p, v, x => node.style.setProperty(p, x)); };
 
-  function init(r, tap, pickDiff, pickMode) {
-    root = r; onTap = tap; onDiff = pickDiff || onDiff; onMode = pickMode || onMode;
+  function init(r, tap, pickDiff, pickMode, start) {
+    root = r; onTap = tap; onDiff = pickDiff || onDiff; onMode = pickMode || onMode; onStart = start || onStart;
     root.innerHTML = `
       <section class="scr scr-title">
         <div class="title-block">
@@ -43,7 +43,7 @@ const UI = (() => {
           <div class="diffs"><span class="dlabel">Độ khó</span><div class="dbtns">${DIFFS.map((d, i) => `<button type="button" class="dbtn" data-diff="${i}" style="--dc:${['#38d6b4', '#ffd23f', '#ff3b4f'][i]}">${d.name}</button>`).join('')}</div></div>
           <p class="ddesc"></p></header>
         <div class="cards"></div>
-        <footer class="sel-hint"></footer>
+        <footer class="sel-foot"><button type="button" class="startbtn" data-start>Bắt đầu</button><p class="sel-hint"></p></footer>
       </section>
       <section class="hud">
         <div class="pps"></div>
@@ -59,7 +59,7 @@ const UI = (() => {
       <div class="floaters"></div>
       <section class="banner"></section>`;
     el = {
-      press: $('.press', root), hi: $('.scr-title .hi', root), cards: $('.cards', root), selHint: $('.sel-hint', root),
+      press: $('.press', root), hi: $('.scr-title .hi', root), cards: $('.cards', root), selHint: $('.sel-hint', root), startBtn: $('.startbtn', root), dbtnsWrap: [...root.querySelectorAll('.dbtns')],
       pps: $('.pps', root), joinhint: $('.joinhint', root), boss: $('.boss', root), bname: $('.bname', root), bfill: $('.bbar i', root), bghost: $('.bbar b', root),
       storm: $('.storm', root), dbtns: [...root.querySelectorAll('[data-diff]')], mbtns: [...root.querySelectorAll('[data-mode]')], ddesc: $('.ddesc:not(.mdesc)', root), mdesc: $('.mdesc', root),
       radio: $('.radio', root), rwho: $('.rwho', root), rtext: $('.rtext', root), sfill: $('.sbar i', root), team: $('.team', root), hi2: $('.hi2', root), floaters: $('.floaters', root), banner: $('.banner', root),
@@ -83,6 +83,7 @@ const UI = (() => {
       if (db) { e.preventDefault(); onDiff(+db.dataset.diff); return; }
       const mb = e.target.closest && e.target.closest('[data-mode]');
       if (mb) { e.preventDefault(); onMode(mb.dataset.mode); return; }
+      if (e.target.closest && e.target.closest('[data-start]')) { e.preventDefault(); onStart(); return; }
       const card = e.target.closest && e.target.closest('.card');
       onTap(card ? +card.dataset.card : -1, e.pointerType === 'touch');
     });
@@ -154,10 +155,18 @@ const UI = (() => {
       else if (!dy || dy.status !== 'ready') md = 'Đang nhờ AI thiết kế màn hôm nay… Người đầu tiên trong ngày có thể phải chờ vài chục giây.';
       else md = `<b>${esc(dy.name)}</b> · ${esc(dy.sub)}. Một màn duy nhất, giống nhau cho mọi người trong ngày ${esc(dy.date)} (${dy.src === 'ai' ? 'AI thiết kế' : 'tạo ngẫu nhiên theo ngày'}).`;
       html(el.mdesc, md + (V.netRole === 'guest' ? ' <span class="dk">Chủ phòng chọn chế độ</span>' : keyHint));
-      html(el.ddesc, DIFFS[V.difficulty].desc + (V.isTouch ? '' : ' <span class="dk"><kbd>↑</kbd><kbd>↓</kbd> đổi độ khó</span>'));
-      const all = V.lobby.length && V.lobby.every(l => l.ready);
-      cls(el.selHint, 'go', !!all);
-      text(el.selHint, all && V.mode === 'daily' && !(dy && dy.status === 'ready') ? 'Đang chuẩn bị màn của ngày…' : all ? 'Vào trận!' : V.isTouch ? 'Chạm thẻ của bạn để sẵn sàng' : 'Lướt: rời đội hoặc huỷ sẵn sàng · Esc: quay lại · Tab: ' + (V.splitKb ? 'tắt chế độ 2 người chung bàn phím' : '2 người chung một bàn phím'));
+      const guest = V.netRole === 'guest';
+      el.dbtnsWrap.forEach(w => cls(w, 'locked', guest));
+      html(el.ddesc, DIFFS[V.difficulty].desc + (guest ? ' <span class="dk">Chủ phòng chọn độ khó</span>' : V.isTouch ? '' : ' <span class="dk"><kbd>↑</kbd><kbd>↓</kbd> đổi độ khó</span>'));
+      const all = !!(V.lobby.length && V.lobby.every(l => l.ready)), loading = V.mode === 'daily' && !(dy && dy.status === 'ready');
+      const left = V.lobby.filter(l => !l.ready).length;
+      cls(el.startBtn, 'hide', guest); cls(el.startBtn, 'go', all && !loading);
+      text(el.startBtn, loading ? 'Đang tải màn…' : 'Bắt đầu');
+      cls(el.selHint, 'go', all && !loading);
+      text(el.selHint, all && loading ? 'Đang chuẩn bị màn của ngày…'
+        : all ? (guest ? 'Chờ chủ phòng bấm Bắt đầu' : V.isTouch ? 'Mọi người đã sẵn sàng!' : 'Mọi người đã sẵn sàng! Bấm Bắt đầu, Enter hoặc Bắn')
+        : left && V.lobby.length > 1 ? `Chờ ${left} người sẵn sàng · Lướt: huỷ sẵn sàng`
+        : V.isTouch ? 'Chạm thẻ của bạn để sẵn sàng' : 'Lướt: rời đội hoặc huỷ sẵn sàng · Esc: quay lại · Tab: ' + (V.splitKb ? 'tắt chế độ 2 người chung bàn phím' : '2 người chung một bàn phím'));
     }
 
     if (inGame && V.G && V.Lv) {

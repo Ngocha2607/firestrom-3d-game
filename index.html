@@ -109,8 +109,15 @@
   .who .auto span { font-weight: 500; letter-spacing: 0.06em; }
   .who .state { margin: 6px 0 0; padding: 6px 8px; font: 700 12px/1.2 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); background: rgba(243, 236, 255, 0.06); text-align: center; }
   .card.ready .state { background: var(--pc); color: var(--void); font-family: var(--display); font-weight: 400; letter-spacing: 0.06em; }
-  .sel-hint { grid-row: 4; margin-top: 12px; text-align: center; font: 600 13px/1.4 var(--body); color: var(--dim); }
-  .sel-hint.go { font: 400 22px/1 var(--display); color: var(--volt); text-shadow: 0 0 20px rgba(255, 210, 63, 0.6); }
+  .sel-foot { grid-row: 4; margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 16px; }
+  .sel-hint { margin: 0; text-align: center; font: 600 13px/1.4 var(--body); color: var(--dim); }
+  .sel-hint.go { font: 600 15px/1.4 var(--body); color: var(--volt); }
+  .startbtn { padding: 10px 28px; font: 400 18px/1 var(--display); letter-spacing: 0.08em; color: var(--dim); background: var(--panel); border: 1.5px solid var(--edge); cursor: not-allowed; }
+  .startbtn.go { color: var(--void); background: var(--volt); border-color: var(--volt); box-shadow: 0 0 22px rgba(255, 210, 63, 0.55); cursor: pointer; animation: pulse 1.4s ease-in-out infinite; }
+  .startbtn.hide { display: none; }
+  .startbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .dbtns.locked .dbtn { cursor: default; }
+  .dbtns.locked .dbtn:not(.on) { opacity: 0.45; }
   @media (max-width: 720px) {
     .cards { gap: 6px; } .card { padding: 8px; min-height: 150px; }
     .who .desc, .stats, .who .ttl { display: none; }

@@ -1506,37 +1506,40 @@
   function pickDifficulty(d) {
     SFX.init();
     if (state !== 'select') return;
-    if (netRole === 'guest') {
-      if (d === difficulty) return;
-      const k = d < difficulty ? 'up' : 'down', slot = playerSlots()[0] || 'kb';
-      netSend({ t: 'in', slot, k: { [k]: true } }); netSend({ t: 'in', slot, k: { [k]: false } });
-      return;
-    }
+    if (netRole === 'guest') return;                     // the host picks the difficulty
     setDifficulty(d);
   }
+  // the Bắt đầu button; also Enter, or Bắn again once ready, on the host's own devices
+  let startReq = false;
+  function requestStart() { SFX.init(); if (state === 'select' && netRole !== 'guest') startReq = true; }
+  const isLocal = id => !/^n\d+:/.test(id);              // n<id>:<slot> are players on guest machines
   function stepSelect() {
     const sys = inp('sys').p;
+    // read before this step's presses, so the press that readies the last player does not also start the match
+    const allReady = lobby.length > 0 && lobby.every(l => l.ready);
+    let go = startReq; startReq = false;
     for (const id of playerSlots()) {
       const P = inputs[id].p, i = lobby.findIndex(l => l.slot === id), l = lobby[i];
       if (!l) { if (P.fire || P.jump || P.start) lobbyJoin(id); continue; }
       if (P.super) { l.auto = !l.auto; SFX.select(); }   // the Bão Lửa key toggles tự bắn for this player
-      if (P.up) setDifficulty(difficulty - 1);
-      if (P.down) setDifficulty(difficulty + 1);
+      if (isLocal(id) && P.up) setDifficulty(difficulty - 1);
+      if (isLocal(id) && P.down) setDifficulty(difficulty + 1);
       if (!l.ready) {
         if (P.left) { l.ci = (l.ci + CHARS.length - 1) % CHARS.length; SFX.select(); }
         if (P.right) { l.ci = (l.ci + 1) % CHARS.length; SFX.select(); }
         if ((P.fire || P.jump || P.start) && stateT > 8) { l.ready = true; SFX.power(); }
         else if (P.dash) { lobby.splice(i, 1); SFX.select(); }
       } else if (P.dash) { l.ready = false; SFX.select(); }
+      else if (allReady && isLocal(id) && (P.fire || P.start)) go = true;
     }
+    if (sys.start && allReady) go = true;
     if (sys.split && netRole !== 'guest') setSplit(!splitKb);
     if (sys.mode) setMode(mode === 'daily' ? 'campaign' : 'daily');
     if (mode === 'daily' && daily.status === 'idle') loadDaily(localDate());
     if (sys.back) { if (lobby.length) lobby = []; else { state = 'title'; stateT = 0; } }
-    const waiting = mode === 'daily' && daily.status !== 'ready';   // the countdown holds until the daily stage is in
-    if (lobby.length && lobby.every(l => l.ready) && !waiting) { if (++lobbyT > 50) { newRun(lobby); startStage(G.stage); requestLines(); } }
-    else lobbyT = 0;
     titleX += 0.3;
+    const waiting = mode === 'daily' && daily.status !== 'ready';   // the daily stage is still loading
+    if (go && allReady && !waiting) { newRun(lobby); startStage(G.stage); requestLines(); }
   }
 
   // the radio fades out by itself; the boss taunt cuts in when the warning sirens start
@@ -1760,7 +1763,7 @@
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   const V = { isTouch, slotName };
-  UI.init(document.getElementById('ui'), tap, pickDifficulty, m => { SFX.init(); if (state === 'select') setMode(m); });
+  UI.init(document.getElementById('ui'), tap, pickDifficulty, m => { SFX.init(); if (state === 'select') setMode(m); }, requestStart);
   function loop(now) {
     const dtMs = Math.min(100, now - last);
     acc += dtMs; last = now;

@@ -18,7 +18,8 @@ Mở `http://localhost:8080`. Cũng có thể mở thẳng `index.html` bằng t
 1. Trên một máy, chạy `node server.js`. Terminal sẽ in ra địa chỉ dạng `http://192.168.x.x:8080`.
 2. Mọi máy (kể cả máy đang chạy server) mở địa chỉ đó trên trình duyệt.
 3. Một máy bấm **Tạo phòng**. Máy này chạy trận đấu, nên hãy để cửa sổ của nó luôn mở và hiển thị trên màn hình.
-4. Các máy còn lại bấm **Vào phòng**, rồi bấm phím Bắn để tham gia.
+4. Các máy còn lại bấm **Vào phòng**, rồi bấm phím Bắn để tham gia và bấm Bắn lần nữa để sẵn sàng.
+5. Khi mọi người đã sẵn sàng, chủ phòng bấm **Bắt đầu** (hoặc Enter, hoặc Bắn thêm một lần) để vào trận. Chỉ chủ phòng chọn được độ khó và chế độ chơi.
 
 Mỗi máy vẫn cắm thêm tay cầm hoặc chơi 2 người chung bàn phím được. Tổng tối đa 4 người.
 Chỉ cần Node.js 16 trở lên, không phải cài thêm thư viện nào. Lần đầu chạy, nếu Windows hỏi tường lửa, hãy chọn cho phép trên mạng **Private**.
