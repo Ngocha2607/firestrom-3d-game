@@ -31,9 +31,9 @@ const UI = (() => {
           <p class="hi"></p>
         </div>
         <div class="keys">
-          <div><h3>Bàn phím 1</h3><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> di chuyển, ngắm</p><p><kbd>F</kbd> bắn <kbd>G</kbd> nhảy <kbd>H</kbd> lướt <kbd>R</kbd> Bão Lửa</p></div>
-          <div><h3>Bàn phím 2</h3><p><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> di chuyển, ngắm</p><p><kbd>,</kbd> bắn <kbd>.</kbd> nhảy <kbd>/</kbd> lướt <kbd>L</kbd> Bão Lửa</p></div>
+          <div><h3>Bàn phím</h3><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> di chuyển, ngắm</p><p><kbd>J</kbd>/<kbd>Z</kbd> bắn <kbd>K</kbd>/<kbd>X</kbd>/<kbd>Space</kbd> nhảy <kbd>L</kbd>/<kbd>C</kbd>/<kbd>Shift</kbd> lướt <kbd>I</kbd>/<kbd>V</kbd> Bão Lửa</p></div>
           <div><h3>Tay cầm</h3><p>Cần trái hoặc D-pad</p><p><kbd>X</kbd> bắn <kbd>A</kbd> nhảy <kbd>B</kbd> lướt <kbd>Y</kbd> Bão Lửa</p></div>
+          <div><h3>Nhiều người</h3><p>Mỗi người một máy, vào chung phòng qua mạng LAN. Hoặc cắm thêm tay cầm vào cùng máy.</p></div>
         </div>
       </section>
       <section class="scr scr-select">
@@ -47,7 +47,7 @@ const UI = (() => {
         <div class="boss"><span class="bname"></span><div class="bbar"><i></i><b></b></div></div>
         <div class="bottom">
           <div class="hi2"></div>
-          <div class="storm"><span class="slabel">Bão Lửa</span><div class="sbar"><i></i></div><span class="skey">R · L · Y</span></div>
+          <div class="storm"><span class="slabel">Bão Lửa</span><div class="sbar"><i></i></div><span class="skey">I · V · Y</span></div>
           <div class="team"></div>
         </div>
       </section>
@@ -105,7 +105,7 @@ const UI = (() => {
     root.dataset.state = (st === 'play' || st === 'clear' || st === 'over') && (!V.Lv || !V.G) ? 'title' : st;
 
     if (st === 'title') {
-      text(el.press, V.isTouch ? 'Chạm để bắt đầu' : 'Nhấn Enter hoặc F để bắt đầu');
+      text(el.press, V.isTouch ? 'Chạm để bắt đầu' : 'Nhấn Enter hoặc J để bắt đầu');
       text(el.hi, V.hiscore ? 'Kỷ lục đội ' + pad(V.hiscore) : '');
     }
 
@@ -114,7 +114,7 @@ const UI = (() => {
       for (let i = 0; i < 4; i++) {
         const c = cards[i], l = V.lobby[i];
         cls(c, 'on', !!l); cls(c, 'ready', !!(l && l.ready));
-        if (!l) { text(c.querySelector('.how'), V.isTouch ? 'Chạm màn hình' : 'F · Enter · A/X tay cầm'); continue; }
+        if (!l) { text(c.querySelector('.how'), V.isTouch ? 'Chạm màn hình' : V.splitKb ? 'F · Enter · A/X tay cầm' : 'J · Enter · A/X tay cầm'); continue; }
         const ch = CHARS[l.ci];
         text(c.querySelector('.slot'), `P${i + 1} · ${V.slotName(l.slot)}`);
         text(c.querySelector('.nm'), ch.name); style(c, '--hc', ch.pal.main);
@@ -125,7 +125,7 @@ const UI = (() => {
       }
       const all = V.lobby.length && V.lobby.every(l => l.ready);
       cls(el.selHint, 'go', !!all);
-      text(el.selHint, all ? 'Vào trận!' : V.isTouch ? 'Chạm thẻ của bạn để sẵn sàng' : 'Lướt: rời đội hoặc huỷ sẵn sàng · Esc: quay lại');
+      text(el.selHint, all ? 'Vào trận!' : V.isTouch ? 'Chạm thẻ của bạn để sẵn sàng' : 'Lướt: rời đội hoặc huỷ sẵn sàng · Esc: quay lại · Tab: ' + (V.splitKb ? 'tắt chế độ 2 người chung bàn phím' : '2 người chung một bàn phím'));
     }
 
     if (inGame && V.G && V.Lv) {
@@ -154,6 +154,7 @@ const UI = (() => {
       }
       const full = G.storm >= 100;
       style(el.sfill, 'width', G.storm.toFixed(1) + '%'); cls(el.storm, 'full', full);
+      text(el.storm.querySelector('.skey'), V.splitKb ? 'R · L · Y' : 'I · V · Y');
       text(el.team, 'Đội ' + pad(V.team));
       text(el.hi2, 'Kỷ lục ' + pad(Math.max(V.hiscore, V.team)));
 

@@ -6,7 +6,7 @@
   const INK = '#f3ecff', DIM = '#a39cc0', EMBER = '#ff6a3d', VOLT = '#ffd23f', JADE = '#38d6b4', BLOOD = '#ff3b4f';
   const WEAPON_NAME = { P: 'XUNG KÍCH', S: 'ĐẠN TỎA', L: 'LASER', H: 'TÊN LỬA' };
   const SCORE = { soldier: 100, turret: 300, drone: 150, hopper: 200, capsule: 50 };
-  const SLOT_NAME = { kbA: 'BÀN PHÍM 1', kbB: 'BÀN PHÍM 2', touch: 'CẢM ỨNG', pad0: 'TAY CẦM 1', pad1: 'TAY CẦM 2', pad2: 'TAY CẦM 3', pad3: 'TAY CẦM 4' };
+  const SLOT_NAME = { kb: 'BÀN PHÍM', kbA: 'BÀN PHÍM TRÁI', kbB: 'BÀN PHÍM PHẢI', touch: 'CẢM ỨNG', pad0: 'TAY CẦM 1', pad1: 'TAY CẦM 2', pad2: 'TAY CẦM 3', pad3: 'TAY CẦM 4' };
   const slotName = s => { const m = /^n(\d+):(.+)$/.exec(s); return m ? 'MÁY ' + m[1] + ' · ' + (SLOT_NAME[m[2]] || m[2]) : (SLOT_NAME[s] || s); };
 
   // LAN: the host browser simulates; guests forward inputs and draw the host's snapshots.
@@ -28,16 +28,33 @@
   const inputs = {};
   const inp = id => inputs[id] || (inputs[id] = { k: {}, p: {} });
   function setIn(id, k, v) { const s = inp(id); if (v && !s.k[k]) s.p[k] = true; s.k[k] = v; }
-  const KB = {
+  // Default: the whole keyboard drives ONE player (each person plays on their own machine / keyboard).
+  // Browsers cannot tell several keyboards on one computer apart, so extra local players use gamepads,
+  // or the optional split mode (Tab on the select screen) that shares one keyboard between two people.
+  const KB_SOLO = {
+    kb: { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down',
+      KeyJ: 'fire', KeyZ: 'fire', KeyK: 'jump', KeyX: 'jump', Space: 'jump', KeyL: 'dash', KeyC: 'dash', ShiftLeft: 'dash', ShiftRight: 'dash',
+      KeyI: 'super', KeyV: 'super', Enter: 'start', NumpadEnter: 'start' },
+  };
+  const KB_SPLIT = {
     kbA: { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyF: 'fire', KeyG: 'jump', Space: 'jump', KeyH: 'dash', KeyR: 'super' },
     kbB: { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Comma: 'fire', Period: 'jump', Slash: 'dash', KeyL: 'super',
       Numpad1: 'fire', Numpad2: 'jump', Numpad3: 'dash', Numpad0: 'super', Enter: 'start', NumpadEnter: 'start' },
-    sys: { Enter: 'start', NumpadEnter: 'start', Escape: 'back', KeyP: 'pause', KeyM: 'mute', KeyQ: 'quality' },
   };
+  const KB_SYS = { sys: { Enter: 'start', NumpadEnter: 'start', Escape: 'back', KeyP: 'pause', KeyM: 'mute', KeyQ: 'quality', Tab: 'split' } };
+  let splitKb = false;
+  const startSlot = () => (splitKb ? 'kbB' : 'kb');
   function onKey(e, down) {
     let hit = false;
-    for (const id in KB) { const a = KB[id][e.code]; if (a) { setIn(id, a, down); hit = true; } }
+    for (const maps of [splitKb ? KB_SPLIT : KB_SOLO, KB_SYS]) for (const id in maps) { const a = maps[id][e.code]; if (a) { setIn(id, a, down); hit = true; } }
     if (hit) { e.preventDefault(); if (down) SFX.init(); }
+  }
+  function setSplit(on) {
+    if (on === splitKb) return;
+    splitKb = on;
+    for (const id of ['kb', 'kbA', 'kbB']) { if (inputs[id]) inputs[id].k = {}; }
+    lobby = lobby.filter(l => !['kb', 'kbA', 'kbB'].includes(l.slot));
+    SFX.select();
   }
   addEventListener('keydown', e => onKey(e, true));
   addEventListener('keyup', e => onKey(e, false));
@@ -88,7 +105,7 @@
       const own = lobby.findIndex(l => l.slot === 'touch');
       if (touchy && own < 0) lobbyJoin('touch');
       else if (own >= 0 && card === own) { lobby[own].ready = !lobby[own].ready; SFX.select(); }
-      else if (!touchy && lobby.length === 0) lobbyJoin('kbB');
+      else if (!touchy && lobby.length === 0) lobbyJoin(startSlot());
     } else if (state === 'play') { if (paused) paused = false; }
     else inp('sys').p.start = true;
   }
@@ -806,6 +823,7 @@
         else if (P.dash) { lobby.splice(i, 1); SFX.select(); }
       } else if (P.dash) { l.ready = false; SFX.select(); }
     }
+    if (sys.split && netRole !== 'guest') setSplit(!splitKb);
     if (sys.back) { if (lobby.length) lobby = []; else { state = 'title'; stateT = 0; } }
     if (lobby.length && lobby.every(l => l.ready)) { if (++lobbyT > 50) { newRun(lobby); startStage(0); } }
     else lobbyT = 0;
@@ -830,9 +848,9 @@
         for (const id of playerSlots()) {
           const P = inputs[id].p;
           if (!joined.has(id) && (P.fire || P.start) && !paused) joinMidgame(id);
-          else if (joined.has(id) && P.start && id !== 'kbB') pauseNow = true;
+          else if (joined.has(id) && P.start && id !== startSlot()) pauseNow = true;
         }
-        if (sys.start && joined.has('kbB')) pauseNow = true;
+        if (sys.start && joined.has(startSlot())) pauseNow = true;
         if (pauseNow) paused = !paused;
         if (!paused) stepPlay();
         break;
@@ -947,6 +965,7 @@
     frame++;
     pollPads();
     if (inp('sys').p.mute) SFX.toggle();
+    if (inp('sys').p.split && state === 'select') setSplit(!splitKb);
     guestSendInputs();
     if (Lv && G && (state === 'play' || state === 'clear')) updateAmbient();
     for (const id in inputs) inputs[id].p = {};
@@ -960,7 +979,7 @@
     if (netRole === 'host') h = `<b>CHỦ PHÒNG</b><p>${netGuests ? netGuests + ' máy khác đã vào phòng.' : 'Chưa có máy nào vào.'} Bạn bè cùng Wi-Fi mở:</p><p class="addr">${addr}</p><p>Máy này chạy trận đấu, hãy để cửa sổ luôn mở.</p>`;
     else if (netRole === 'guest') h = netStatus === 'waiting'
       ? `<b>ĐÃ KẾT NỐI</b><p>Đang chờ một máy bấm “Tạo phòng”…</p>`
-      : `<b>ĐÃ VÀO PHÒNG</b><p>Bấm phím BẮN (F, Enter hoặc nút A/X trên tay cầm) để tham gia.</p>`;
+      : `<b>ĐÃ VÀO PHÒNG</b><p>Bấm phím Bắn (J, Z, Enter hoặc nút A/X trên tay cầm) để tham gia.</p>`;
     else if (netStatus === 'connecting') h = `<b>MẠNG LAN</b><p>Đang kết nối…</p>`;
     else h = `<b>CHƠI QUA MẠNG LAN</b><p>Các máy cùng Wi-Fi mở địa chỉ:</p><p class="addr">${addr}</p>`
       + (netStatus === 'error' ? `<p class="err">${netError}</p>` : netStatus === 'closed' ? `<p class="err">Mất kết nối với máy chủ.</p>` : '')
@@ -997,7 +1016,7 @@
     }
     lanVisibility();
     V.state = state; V.stateT = stateT; V.frame = frame; V.paused = paused; V.G = G; V.Lv = Lv; V.lobby = lobby; V.lobbyT = lobbyT;
-    V.hiscore = hiscore; V.team = teamScore(); V.netRole = netRole;
+    V.hiscore = hiscore; V.team = teamScore(); V.netRole = netRole; V.splitKb = splitKb;
     VIEW3D.render(V, dtMs);
     UI.render(V);
     requestAnimationFrame(loop);

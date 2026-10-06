@@ -25,11 +25,17 @@ Chỉ cần Node.js 16 trở lên, không phải cài thêm thư viện nào. L�
 
 ## Điều khiển
 
+Mỗi người chơi dùng **bàn phím của riêng mình** (cả bàn phím điều khiển một nhân vật):
+
 | | Di chuyển / ngắm | Bắn | Nhảy | Lướt | Bão Lửa |
 |---|---|---|---|---|---|
-| Bàn phím 1 | W A S D | F | G hoặc Space | H | R |
-| Bàn phím 2 | Phím mũi tên | `,` hoặc Numpad 1 | `.` hoặc Numpad 2 | `/` hoặc Numpad 3 | L hoặc Numpad 0 |
+| Bàn phím | W A S D hoặc phím mũi tên | J hoặc Z | K, X hoặc Space | L, C hoặc Shift | I hoặc V |
 | Tay cầm | Cần trái / D-pad | X, RB, RT | A | B, LB, LT | Y |
+
+**4 người, 4 bàn phím:** mỗi người ngồi một máy và vào chung phòng qua mạng LAN (xem bên trên).
+Trình duyệt không phân biệt được nhiều bàn phím cắm vào **cùng một máy**: cắm 4 bàn phím vào một PC thì cả 4 sẽ điều khiển chung một nhân vật.
+Muốn thêm người trên cùng một máy thì cắm tay cầm. Nếu thật sự cần 2 người chung một bàn phím, bấm **Tab** ở màn chọn nhân vật để bật chế độ chia đôi:
+người bên trái dùng W A S D + F/G/H/R, người bên phải dùng phím mũi tên + `,` `.` `/` L.
 
 - Giữ ↑ để bắn lên, bắn chéo khi vừa chạy vừa ngắm. Đang trên không thì giữ ↓ để bắn xuống. Đứng yên bấm ↓ để nằm.
 - Bấm ↓ + Nhảy khi đứng trên bục mỏng để rơi xuống tầng dưới.
