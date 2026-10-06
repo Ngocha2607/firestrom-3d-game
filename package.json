@@ -1,0 +1,12 @@
+{
+  "name": "bao-lua",
+  "version": "1.0.0",
+  "description": "Bão Lửa — game bắn súng màn hình ngang, 1–4 người, chơi chung máy hoặc qua mạng LAN",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

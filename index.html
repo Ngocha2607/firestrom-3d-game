@@ -1,0 +1,98 @@
+<meta charset="utf-8">
+<title>Bão Lửa</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap">
+<style>
+  /* Layout: one full-bleed arcade screen; the 480x272 pixel canvas is letterboxed in the middle,
+     touch controls float over the bottom corners on phones. Single dark look by design. */
+  :root {
+    --void: #07060d;
+    --ink: #f3ecff;
+    --dim: #a39cc0;
+    --ember: #ff6a3d;
+    --glass: rgba(243, 236, 255, 0.07);
+    --glass-edge: rgba(243, 236, 255, 0.22);
+    --glass-on: rgba(255, 106, 61, 0.35);
+    --panel: rgba(7, 6, 13, 0.88);
+    --blood: #ff5a6a;
+    --display: 'Bungee', Impact, 'Arial Black', sans-serif;
+    --body: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--void); color: var(--ink); font-family: var(--body);
+    overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #screen { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+  #touch {
+    position: fixed; left: 0; right: 0; bottom: 0; display: none; justify-content: space-between; align-items: flex-end;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
+  }
+  #corner {
+    position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 16px; display: none; gap: 8px;
+  }
+  @media (pointer: coarse) { #touch, #corner { display: flex; } }
+
+  #stick {
+    pointer-events: auto; width: 128px; height: 128px; border-radius: 50%; position: relative;
+    background: var(--glass); border: 1.5px solid var(--glass-edge); touch-action: none;
+  }
+  #knob {
+    position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%;
+    background: var(--glass-edge); border: 1.5px solid var(--ink); transition: transform 40ms linear;
+  }
+  .actions { pointer-events: auto; display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(2, 58px); gap: 8px; }
+  .btn {
+    display: grid; place-items: center; border-radius: 50%; background: var(--glass); border: 1.5px solid var(--glass-edge);
+    color: var(--ink); font: 700 12px/1 var(--body); letter-spacing: 0.06em; touch-action: none; padding: 0;
+  }
+  .btn.on { background: var(--glass-on); border-color: var(--ember); }
+  .btn.fire { grid-column: 3; grid-row: 1 / span 2; border-radius: 29px; font-family: var(--display); font-weight: 400; font-size: 13px; }
+  .btn.storm { grid-column: 1; grid-row: 1; color: var(--ember); border-color: var(--ember); }
+  .btn.jump { grid-column: 2; grid-row: 1; }
+  .btn.dash { grid-column: 2; grid-row: 2; }
+  .btn.small { width: 44px; height: 32px; border-radius: 8px; font-size: 11px; }
+
+  #lan {
+    position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; max-width: min(300px, calc(100% - 32px));
+    display: grid; gap: 6px; padding: 12px 14px; background: var(--panel); border: 1.5px solid var(--glass-edge); border-left: 3px solid var(--ember);
+    font: 500 13px/1.45 var(--body); color: var(--ink);
+  }
+  #lan[hidden] { display: none; }
+  #lan b { font: 400 13px/1.2 var(--display); letter-spacing: 0.06em; color: var(--ember); }
+  #lan p { margin: 0; color: var(--dim); }
+  #lan .addr { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; user-select: text; -webkit-user-select: text; overflow-wrap: anywhere; }
+  #lan .err { color: var(--blood); }
+  #lan .row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+  #lan button { font: 700 12px/1 var(--body); letter-spacing: 0.06em; padding: 9px 12px; border: 1.5px solid var(--ember); background: var(--ember); color: var(--void); cursor: pointer; }
+  #lan button.ghost { background: transparent; color: var(--ink); border-color: var(--glass-edge); }
+  #lan button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { #knob { transition: none; } }
+</style>
+
+<canvas id="screen" aria-label="Bão Lửa, game bắn súng màn hình ngang"></canvas>
+
+<div id="lan" hidden aria-live="polite"></div>
+
+<div id="corner">
+  <button class="btn small" data-sys="pause" aria-label="Tạm dừng">II</button>
+  <button class="btn small" data-sys="mute" aria-label="Bật hoặc tắt âm thanh">♪</button>
+</div>
+<div id="touch">
+  <div id="stick" aria-label="Cần điều hướng"><div id="knob"></div></div>
+  <div class="actions">
+    <button class="btn storm" data-k="super">BÃO</button>
+    <button class="btn jump" data-k="jump">NHẢY</button>
+    <button class="btn dash" data-k="dash">LƯỚT</button>
+    <button class="btn fire" data-k="fire">BẮN</button>
+  </div>
+</div>
+
+<script src="src/audio.js"></script>
+<script src="src/sprites.js"></script>
+<script src="src/levels.js"></script>
+<script src="src/game.js"></script>
