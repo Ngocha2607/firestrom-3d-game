@@ -30,7 +30,7 @@ const UI = (() => {
           <p class="hi"></p>
         </div>
         <div class="keys">
-          <div><h3>Bàn phím</h3><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> di chuyển, ngắm</p><p><kbd>J</kbd>/<kbd>Z</kbd> bắn <kbd>K</kbd>/<kbd>X</kbd>/<kbd>Space</kbd> nhảy <kbd>L</kbd>/<kbd>C</kbd>/<kbd>Shift</kbd> lướt <kbd>I</kbd>/<kbd>V</kbd> Bão Lửa</p></div>
+          <div><h3>Bàn phím</h3><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> di chuyển, ngắm</p><p><kbd>J</kbd>/<kbd>Z</kbd> bắn <kbd>K</kbd>/<kbd>X</kbd>/<kbd>Space</kbd> nhảy <kbd>L</kbd>/<kbd>C</kbd>/<kbd>Shift</kbd> lướt <kbd>I</kbd>/<kbd>V</kbd> Bão Lửa</p><p>Tự bắn bật sẵn, tắt ở bước chọn nhân vật</p></div>
           <div><h3>Tay cầm</h3><p>Cần trái hoặc D-pad</p><p><kbd>X</kbd> bắn <kbd>A</kbd> nhảy <kbd>B</kbd> lướt <kbd>Y</kbd> Bão Lửa</p></div>
           <div><h3>Nhiều người</h3><p>Mỗi người một máy, vào chung phòng qua mạng LAN. Hoặc cắm thêm tay cầm vào cùng máy.</p></div>
         </div>
@@ -64,6 +64,7 @@ const UI = (() => {
       c.innerHTML = `<div class="join"><span class="pn">P${i + 1}</span><b>Tham gia</b><span class="how"></span></div>
         <div class="who"><p class="slot"></p><h3 class="nm"></h3><p class="ttl"></p><p class="desc"></p>
           <dl class="stats"><dt>Tốc độ</dt><dd><i></i></dd><dt>Giáp</dt><dd><i></i></dd><dt>Kỹ thuật</dt><dd><i></i></dd></dl>
+          <p class="auto"></p>
           <p class="state"></p></div>`;
       el.cards.appendChild(c);
     }
@@ -124,6 +125,8 @@ const UI = (() => {
         text(c.querySelector('.ttl'), ch.title + ' · ' + ch.role);
         text(c.querySelector('.desc'), ch.desc);
         c.querySelectorAll('.stats dd i').forEach((b, k) => style(b, 'width', ch.stats[k] * 20 + '%'));
+        const sk = { kb: 'I', kbA: 'R', kbB: 'L', touch: 'BÃO' }[l.slot.replace(/^n\d+:/, '')] || 'Y';
+        html(c.querySelector('.auto'), `Tự bắn <b class="${l.auto !== false ? 'on' : ''}">${l.auto !== false ? 'Bật' : 'Tắt'}</b> <span>· ${sk} để đổi</span>`);
         text(c.querySelector('.state'), l.ready ? 'Sẵn sàng' : (V.isTouch ? 'Chạm thẻ để sẵn sàng' : '◀ ▶ đổi nhân vật · Bắn để chọn'));
       }
       el.dbtns.forEach((b, i) => cls(b, 'on', i === V.difficulty));

@@ -121,13 +121,13 @@
   const teamScore = () => (G ? G.players.reduce((s, p) => s + p.score, 0) : 0);
   const saveHi = () => { const s = teamScore(); if (s > hiscore) { hiscore = s; try { localStorage.setItem('baolua_hi', String(s)); } catch (e) { } } };
 
-  function makeRecord(slot, ci, num) { return { slot, ci, num, lives: DF().lives, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
-  function newRun(entries) { G = null; G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i)), stage: 0, storm: 0, diff: difficulty }; }
+  function makeRecord(slot, ci, num, auto = true) { return { slot, ci, num, auto, lives: DF().lives, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
+  function newRun(entries) { G = null; G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i, l.auto !== false)), stage: 0, storm: 0, diff: difficulty }; }
   function freeChar(used) { const c = [...CHARS.keys()].find(i => !used.includes(i)); return c === undefined ? used.length % CHARS.length : c; }
 
   function lobbyJoin(slot) {
     if (lobby.length >= 4 || lobby.some(l => l.slot === slot)) return;
-    lobby.push({ slot, ci: freeChar(lobby.map(l => l.ci)), ready: false }); SFX.select();
+    lobby.push({ slot, ci: freeChar(lobby.map(l => l.ci)), ready: false, auto: true }); SFX.select();
   }
 
   function buildLevel(i) {
@@ -298,6 +298,13 @@
     const sx = p.x + p.w / 2 + p.facing, sy = p.y + p.h - (p.crouch ? 6 : 14);
     return [sx + p.aimX * 14, sy + p.aimY * 14];
   }
+  // where the 3D model's gun tip is drawn. The sim muzzle sits lower so standing shots still hit turrets;
+  // bullets are drawn from the tip and glide onto their real path over GLIDE frames (see updateBullets).
+  const GLIDE = 30;
+  function gunTip(p) {
+    const len = CHARS[p.ci].id === 'mai' ? 27.5 : 21.8, feet = p.y + p.h;
+    return [p.x + p.w / 2 - 2 * p.facing + p.aimX * len, feet - (p.crouch ? 19 : 26) + p.aimY * len];
+  }
   function shot(x, y, a, sp, dmg, kind, own, o = {}) {
     Lv.pB.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, kind, own, life: o.life || 100, g: o.g || 0, pierce: !!o.pierce, homing: !!o.homing, hit: new Set() });
   }
@@ -337,7 +344,7 @@
   }
   function fire(p) {
     const pr = p.pr, rate = pr.rapid ? 0.6 : 1, [mx, my] = muzzle(p), a = Math.atan2(p.aimY, p.aimX);
-    const ch = CHARS[p.ci], mul = ch.dmgMul || 1, spd = ch.shotSpeed || 1;
+    const ch = CHARS[p.ci], mul = ch.dmgMul || 1, spd = ch.shotSpeed || 1, n0 = Lv.pB.length, bolts0 = Lv.bolts.length;
     p.flash = 4;
     switch (pr.weapon) {
       case 'S': for (const d of [-0.28, -0.14, 0, 0.14, 0.28]) shot(mx, my, a + d, 5.2 * spd, mul, 'S', pr); p.fireCd = 15 * rate; SFX.spread(); break;
@@ -350,6 +357,9 @@
       case 'T': chainLightning(p, mx, my, 2 * mul); p.fireCd = 13 * rate; SFX.zap(); break;
       default: shot(mx, my, a, 6.2 * spd, mul, 'P', pr); p.fireCd = 9 * rate; SFX.shoot();
     }
+    const [tx, ty] = gunTip(p);
+    for (let i = n0; i < Lv.pB.length; i++) { const b = Lv.pB[i]; b.ox = tx - mx; b.oy = ty - my; b.ok = GLIDE; }
+    if (Lv.bolts.length > bolts0) { const bl = Lv.bolts[Lv.bolts.length - 1]; bl.pts[0] = tx; bl.pts[1] = ty; }
   }
 
   function updatePlayer(p, idx) {
@@ -404,7 +414,7 @@
     if (p.crouch) { ax = p.facing; ay = 0; }
     if (!ax && !ay) ax = p.facing;
     const n = Math.hypot(ax, ay); p.aimX = ax / n; p.aimY = ay / n;
-    if (K.fire && p.fireCd <= 0 && p.dashT <= 0) fire(p);
+    if ((K.fire || pr.auto) && p.fireCd <= 0 && p.dashT <= 0) fire(p);   // pr.auto: tự bắn, no need to hold fire
     if (PR.super && G.storm >= 100) triggerStorm(p);
     if (p.onGround && Math.abs(p.vx) > 0.3) p.anim++;
 
@@ -958,6 +968,7 @@
   function updateBullets() {
     for (const b of Lv.pB) {
       if (--b.life <= 0) { if (isBomb(b)) explodeBomb(b); b.dead = true; continue; }
+      if (b.ok > 0) b.ok--;
       if (b.g) b.vy += b.g;
       if (b.homing) {
         const tg = nearestTarget(b.x, b.y);
@@ -1254,7 +1265,7 @@
     p.h = p.crouch ? 14 : 22; p.y = -(p.jz + p.h); p.onGround = p.jz <= 0;
     if (p.onGround && Math.abs(p.vx) > 0.3) p.anim++;
     p.aimX = K.up && hx ? hx : 0; p.aimY = 0;
-    if (K.fire && p.fireCd <= 0 && p.dashT <= 0 && active) fireBase(p);
+    if ((K.fire || pr.auto) && p.fireCd <= 0 && p.dashT <= 0 && active) fireBase(p);
     if (PR.super && G.storm >= 100 && active) triggerStormBase(p);
     for (const it of Lv.items) if (!it.remove && Math.abs(it.x - p.x - 5) < 16 && p.jz < 14) { it.y = p.y; applyPickup(p, it); }
     const d = p.drone;
@@ -1432,6 +1443,7 @@
     for (const id of playerSlots()) {
       const P = inputs[id].p, i = lobby.findIndex(l => l.slot === id), l = lobby[i];
       if (!l) { if (P.fire || P.jump || P.start) lobbyJoin(id); continue; }
+      if (P.super) { l.auto = !l.auto; SFX.select(); }   // the Bão Lửa key toggles tự bắn for this player
       if (P.up) setDifficulty(difficulty - 1);
       if (P.down) setDifficulty(difficulty + 1);
       if (!l.ready) {
@@ -1556,7 +1568,7 @@
       s.lv = {
         i: L.i, camX: L.camX, camY: L.camY, base: L.base, t: L.t, shake: L.shake, introT: L.introT, bossState: L.bossState, warnT: L.warnT, stormT: L.stormT, flashT: L.flashT,
         players: L.players.map(p => { const { pr, ...o } = p; o.num = pr.num; return o; }),
-        enemies: L.enemies, pB: L.pB.map(q => ({ x: q.x, y: q.y, z: q.z, vx: q.vx, vy: q.vy, vz: q.vz, kind: q.kind, life: q.life })), beams: L.beams, eB: L.eB, items: L.items,
+        enemies: L.enemies, pB: L.pB.map(q => ({ x: q.x, y: q.y, z: q.z, vx: q.vx, vy: q.vy, vz: q.vz, kind: q.kind, life: q.life, ox: q.ox, oy: q.oy, ok: q.ok })), beams: L.beams, eB: L.eB, items: L.items,
         parts: L.parts.slice(-350), texts: L.texts, rings: L.rings, trail: L.trail, bolts: L.bolts,
         boss: b ? (({ hist, ...o }) => o)(b) : null,
       };

@@ -53,6 +53,7 @@ Trình duyệt không phân biệt được nhiều bàn phím cắm vào **cùn
 Muốn thêm người trên cùng một máy thì cắm tay cầm. Nếu thật sự cần 2 người chung một bàn phím, bấm **Tab** ở màn chọn nhân vật để bật chế độ chia đôi:
 người bên trái dùng W A S D + F/G/H/R, người bên phải dùng phím mũi tên + `,` `.` `/` L.
 
+- **Tự bắn** bật sẵn cho mọi người: không cần giữ phím Bắn, chỉ cần di chuyển và ngắm. Ở sảnh chọn nhân vật, mỗi người bấm phím Bão Lửa (I / V, tay cầm Y) để bật hoặc tắt cho riêng mình.
 - Giữ ↑ để bắn lên, bắn chéo khi vừa chạy vừa ngắm. Đang trên không thì giữ ↓ để bắn xuống. Đứng yên bấm ↓ để nằm.
 - Bấm ↓ + Nhảy khi đứng trên bục mỏng để rơi xuống tầng dưới.
 - Lướt giúp vượt hố xa và tránh đạn (không bị trúng đạn trong lúc lướt).

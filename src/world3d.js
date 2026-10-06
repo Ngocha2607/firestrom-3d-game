@@ -1015,7 +1015,7 @@ const VIEW3D = (() => {
     // bullets
     for (const k in I) I[k].count = 0;
     for (const q of L.pB) {
-      const x = X(q.x), y = Y(q.y), a = Math.atan2(-q.vy, q.vx);
+      const k = q.ok > 0 ? q.ok / 30 : 0, x = X(k ? q.x + q.ox * k : q.x), y = Y(k ? q.y + q.oy * k : q.y), a = Math.atan2(-q.vy, q.vx);   // drawn from the gun tip, gliding onto the sim path
       if (q.kind === 'F') { const age = 26 - (q.life || 20); putSphere(I.F, x, y, 0.2, 0.12 + age * 0.03); continue; }
       if (q.kind === 'B' || q.kind === 'b') { putSphere(I.B, x, y, 0.2, q.kind === 'B' ? 0.2 : 0.13); if (t % 8 < 4) putSphere(I.bombLight, x, y + 0.15, 0.3, 0.06); continue; }
       if (q.kind === 'L' || q.kind === 'H') {
