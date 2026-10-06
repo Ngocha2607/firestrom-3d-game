@@ -1361,7 +1361,7 @@ const VIEW3D = (() => {
     // choose the world to show
     if (V.state === 'title' || V.state === 'select' || !V.Lv || !V.G) ensureEnv('show_harbor', 'harbor', null, true);
     else if (V.state === 'victory') ensureEnv('show_sky', 'sky', null, true);
-    else ensureEnv('L' + V.Lv.i, LEVELS[V.Lv.i].theme, LEVELS[V.Lv.i], false);
+    else ensureEnv('L' + V.Lv.i + (V.Lv.d.daily || ''), V.Lv.d.theme, V.Lv.d, false);
 
     poolsBegin(); pBegin(PA); pBegin(PS);
     for (const k in I) I[k].count = 0;

@@ -39,6 +39,16 @@ npm run deploy          # in ra địa chỉ dạng https://bao-lua.<tên-tài-k
 
 Chạy thử bản Cloudflare trên máy: `npm run dev:cf` rồi mở `http://localhost:8787`.
 
+**AI của Cloudflare (Workers AI):** bản online dùng mô hình `llama-3.3-70b-instruct-fp8-fast` cho 3 việc:
+
+- **Màn của ngày**: ở bước chọn nhân vật, chọn chế độ **Màn của ngày** (bấm nút hoặc phím **N**). AI thiết kế một màn mới mỗi ngày, gồm tên màn, địa hình, kẻ địch, vật phẩm, lời Chỉ huy và câu khiêu khích của trùm. Màn được lưu lại nên cả ngày ai cũng chơi cùng một màn. AI chỉ chọn các đoạn địa hình; khoảng cách hố, độ cao bậc và vị trí bục do code tự đặt ([src/daily.js](src/daily.js)), nên màn luôn vượt qua được.
+- **Bộ đàm**: ở chế độ Chiến dịch, khi bắt đầu chơi AI viết lời Chỉ huy giao nhiệm vụ và câu khiêu khích của trùm cho cả 7 màn (một lần gọi, mất khoảng 10–20 giây, nên lời đầu tiên hiện ra sau khi màn 1 đã bắt đầu).
+- **Tổng kết trận**: khi thắng hoặc cả đội ngã, AI bình luận vài câu dựa trên điểm, số địch hạ và số lần bị hạ của từng người.
+
+Không cần cài thêm gì: `npm run deploy` tự bật Workers AI theo [wrangler.toml](wrangler.toml). Gói miễn phí có 10.000 "neuron" mỗi ngày. Mỗi lượt chơi chiến dịch tốn khoảng 250 neuron, màn của ngày khoảng 200 neuron cho cả ngày. Hết lượt miễn phí thì game vẫn chạy bình thường, chỉ không có lời thoại AI. Mỗi địa chỉ IP gọi được tối đa 6 lần mỗi phút.
+AI viết bằng **tiếng Anh** (mô hình viết tiếng Anh tốt và ổn định hơn). Muốn chuyển sang tiếng Việt thì đổi `AI_LANG = "vi"` trong `wrangler.toml`; màn của ngày đã tạo trước đó vẫn giữ ngôn ngữ cũ.
+Muốn tắt AI thì xóa khối `[ai]` trong `wrangler.toml`. Khi chạy LAN (`node server.js`) hoặc khi AI lỗi, Màn của ngày được tạo ngẫu nhiên theo ngày (máy chủ phòng và người vào phòng vẫn chơi cùng một màn).
+
 ## Điều khiển
 
 Mỗi người chơi dùng **bàn phím của riêng mình** (cả bàn phím điều khiển một nhân vật):

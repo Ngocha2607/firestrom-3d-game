@@ -154,6 +154,11 @@
   .bbar b { background: rgba(255, 255, 255, 0.5); transition: width 600ms ease 200ms; }
   .bbar i { z-index: 1; background: linear-gradient(90deg, #ff3b4f, #ff6a3d 60%, #ffd23f); box-shadow: 0 0 16px rgba(255, 106, 61, 0.8); }
   .boss.low .bbar i { background: #ff3b4f; animation: pulse 0.6s infinite; }
+  .radio { position: absolute; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: min(560px, calc(100% - 32px)); transform: translateX(-50%); display: none; padding: 9px 14px; background: var(--panel-solid); border: 1px solid var(--edge); border-left: 3px solid var(--jade); font: 600 14px/1.45 var(--body); color: var(--ink); text-shadow: 0 1px 2px #000; }
+  .radio.show { display: block; animation: radioin 300ms ease-out; }
+  @keyframes radioin { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+  .radio .rwho { display: block; margin-bottom: 2px; font: 700 11px/1 var(--body); letter-spacing: 0.2em; color: var(--jade); }
+  .bx .recap { max-width: 52ch; margin: 12px auto 0; padding: 10px 12px; border-left: 3px solid var(--jade); background: rgba(56, 214, 180, 0.08); font-size: 15px; text-align: left; }
   .bottom { position: absolute; left: 16px; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
   .hi2 { font: 600 12px/1 var(--body); letter-spacing: 0.14em; color: var(--dim); font-variant-numeric: tabular-nums; text-transform: uppercase; }
   .team { font: 400 18px/1 var(--display); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 #000; }
@@ -171,6 +176,7 @@
     .bottom { bottom: auto; top: calc(58px + env(safe-area-inset-top, 0px)); justify-content: center; }
     .hi2, .joinhint { display: none; }
     .boss { top: calc(104px + env(safe-area-inset-top, 0px)); }
+    .radio { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
     .pp { min-width: 0; }
   }
 
@@ -267,6 +273,7 @@
 <script src="src/data.js"></script>
 <script src="src/audio.js"></script>
 <script src="src/levels.js"></script>
+<script src="src/daily.js"></script>
 <script src="src/models.js"></script>
 <script src="src/world3d.js"></script>
 <script src="src/ui.js"></script>

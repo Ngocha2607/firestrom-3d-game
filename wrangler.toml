@@ -14,6 +14,33 @@ binding = "ASSETS"
 name = "ROOMS"
 class_name = "Room"
 
+# the daily stage, generated once per date and shared by everyone
+[[durable_objects.bindings]]
+name = "DAILY"
+class_name = "Daily"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Daily"]
+
+[vars]
+# language of the AI-written text (daily stage name, radio lines, recap): "en" or "vi"
+AI_LANG = "en"
+
+# Workers AI: daily stage, radio lines, match recap. Remove this block to turn the AI features off
+# (the daily stage is then rolled from the date).
+[ai]
+binding = "AI"
+
+# at most 6 AI calls (radio lines + recap) per minute per IP address
+[[ratelimits]]
+name = "AI_LIMIT"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 6
+  period = 60

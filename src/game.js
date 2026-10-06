@@ -42,7 +42,7 @@
     kbB: { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Comma: 'fire', Period: 'jump', Slash: 'dash', KeyL: 'super',
       Numpad1: 'fire', Numpad2: 'jump', Numpad3: 'dash', Numpad0: 'super', Enter: 'start', NumpadEnter: 'start' },
   };
-  const KB_SYS = { sys: { Enter: 'start', NumpadEnter: 'start', Escape: 'back', KeyP: 'pause', KeyM: 'mute', KeyQ: 'quality', Tab: 'split' } };
+  const KB_SYS = { sys: { Enter: 'start', NumpadEnter: 'start', Escape: 'back', KeyP: 'pause', KeyM: 'mute', KeyQ: 'quality', Tab: 'split', KeyN: 'mode' } };
   let splitKb = false;
   const startSlot = () => (splitKb ? 'kbB' : 'kb');
   function onKey(e, down) {
@@ -121,8 +121,80 @@
   const teamScore = () => (G ? G.players.reduce((s, p) => s + p.score, 0) : 0);
   const saveHi = () => { const s = teamScore(); if (s > hiscore) { hiscore = s; try { localStorage.setItem('baolua_hi', String(s)); } catch (e) { } } };
 
-  function makeRecord(slot, ci, num, auto = true) { return { slot, ci, num, auto, lives: DF().lives, score: 0, weapon: 'P', rapid: false, nextLife: 20000 }; }
-  function newRun(entries) { G = null; G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i, l.auto !== false)), stage: 0, storm: 0, diff: difficulty }; }
+  function makeRecord(slot, ci, num, auto = true) { return { slot, ci, num, auto, lives: DF().lives, score: 0, weapon: 'P', rapid: false, nextLife: 20000, kills: 0, deaths: 0, bosses: 0 }; }
+  function newRun(entries) {
+    runId++; aiLines = null;
+    const dly = mode === 'daily' && daily.def ? { date: daily.date, src: daily.src, name: daily.def.name } : null;
+    G = null; G = { players: entries.map((l, i) => makeRecord(l.slot, l.ci, i, l.auto !== false)), stage: dly ? DAILY_IDX : 0, storm: 0, diff: difficulty, daily: dly, radio: null, recap: '' };
+  }
+
+  // ---------- "Màn của ngày" and the AI extras (Cloudflare Workers AI, see worker/index.js) ----------
+  // The daily stage is the same for everyone on a date: the Worker stores one plan per day. Without the Worker
+  // (LAN, file://) or when it fails, the plan is rolled from the date, so a room's host and guests still match.
+  const CAMPAIGN = LEVELS.length, DAILY_IDX = LEVELS.length;
+  let mode = 'campaign', hostDaily = null, runId = 0, aiLines = null;
+  const daily = { date: '', status: 'idle', src: '', def: null };
+  const levelDef = i => (i === DAILY_IDX ? daily.def : LEVELS[i]);
+  const localDate = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
+  let dailyBest = { date: '', score: 0 };
+  try { dailyBest = JSON.parse(localStorage.getItem('baolua_daily')) || dailyBest; } catch (e) { }
+  function setDaily(date, src, plan) { daily.date = date; daily.src = src; daily.def = DAILY.build(plan, date); daily.status = 'ready'; }
+  function loadDaily(date, src) {
+    if (daily.date === date && (daily.status === 'loading' || daily.failed || (daily.status === 'ready' && (!src || src === daily.src)))) return;
+    // a failed fetch is not retried for that date: the rolled plan stays (failed is cleared when the date changes)
+    if (daily.date !== date) daily.failed = false;
+    daily.date = date; daily.status = 'loading'; daily.def = null;
+    const local = () => { if (daily.date === date) { setDaily(date, 'local', DAILY.randomPlan(date)); daily.failed = true; } };
+    if (src === 'local' || !(netInfo && netInfo.online)) return local();
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 45000);   // the first visitor of the day waits for the AI
+    fetch('api/daily?d=' + date, { signal: ctl.signal })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+      .then(rec => { const plan = DAILY.sanitize(rec && rec.plan); if (!plan) throw new Error('bad plan'); if (daily.date === date) setDaily(date, rec.source, plan); })
+      .catch(local)
+      .finally(() => clearTimeout(timer));
+  }
+  const dailyInfo = () => (netRole === 'guest' ? hostDaily
+    : { date: daily.date, status: daily.status, src: daily.src, name: daily.def ? daily.def.name : '', sub: daily.def ? daily.def.sub : '' });
+  function setMode(m) {
+    if (m === mode || netRole === 'guest') return;
+    mode = m; lobbyT = 0; SFX.select();
+    if (m === 'daily') loadDaily(localDate());
+  }
+  function saveDailyBest() {
+    const s = teamScore();
+    if (dailyBest.date === G.daily.date && dailyBest.score >= s) return;
+    dailyBest = { date: G.daily.date, score: s };
+    try { localStorage.setItem('baolua_daily', JSON.stringify(dailyBest)); } catch (e) { }
+  }
+
+  const aiOn = () => !!(netInfo && netInfo.ai) && netRole !== 'guest';
+  const postAI = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))));
+  // the radio box over the HUD; it lives in G so LAN/online guests see it too
+  function radio(who, text, frames) { if (G && text) G.radio = { who, text, t: frames }; }
+  function radioBrief() { const l = aiLines && aiLines[G.stage]; if (l && l.brief) radio('CHỈ HUY', l.brief, 480); }
+  // one call per run writes the briefing and the boss taunt of every campaign stage; the daily plan carries its own
+  function requestLines() {
+    if (G.daily) { aiLines = { [DAILY_IDX]: { brief: daily.def.brief, taunt: daily.def.taunt } }; radioBrief(); return; }
+    if (!aiOn()) return;
+    const id = runId;
+    postAI('api/lines', {
+      team: G.players.map(p => CHARS[p.ci].name + ' (' + CHARS[p.ci].role + ')'), diff: DF().name,
+      stages: LEVELS.map(l => ({ theme: l.theme, boss: l.boss, sub: l.sub })),
+    }).then(o => {
+      if (id !== runId || !G || !o || !Array.isArray(o.lines)) return;
+      aiLines = Object.assign({}, o.lines);
+      if (Lv && Lv.t < 1500 && !G.radio) radioBrief();     // arrived during the opening of the first stage
+    }).catch(() => { });
+  }
+  function requestRecap(result) {
+    if (!aiOn() || !G) return;
+    const id = runId, at = state;
+    postAI('api/recap', {
+      result, stage: Lv ? Lv.d.name : '', diff: DF().name,
+      players: G.players.map(p => ({ name: 'P' + (p.num + 1) + ' ' + CHARS[p.ci].name, score: p.score, kills: p.kills, deaths: p.deaths, bosses: p.bosses })),
+    }).then(o => { if (id === runId && G && state === at && o && o.text) G.recap = o.text; }).catch(() => { });
+  }
   function freeChar(used) { const c = [...CHARS.keys()].find(i => !used.includes(i)); return c === undefined ? used.length % CHARS.length : c; }
 
   function lobbyJoin(slot) {
@@ -131,7 +203,7 @@
   }
 
   function buildLevel(i) {
-    const d = LEVELS[i], cols = d.cols, rows = d.rows || ROWS, vertical = !!d.vertical, map = [];
+    const d = levelDef(i), cols = d.cols, rows = d.rows || ROWS, vertical = !!d.vertical, map = [];
     for (let r = 0; r < rows; r++) map.push(new Uint8Array(cols));
     for (const [a, b, row] of d.ground) for (let c = a; c < b; c++) for (let r = row; r < rows; r++) map[r][c] = 1;
     for (const [c0, r0, w, h] of d.blocks || []) for (let r = r0; r < r0 + h; r++) for (let c = c0; c < c0 + w; c++) if (r >= 0 && r < rows && c >= 0 && c < cols) map[r][c] = 1;
@@ -158,7 +230,9 @@
     else if (Lv.vertical) Lv.players = G.players.map((pr, k) => newPlayer(pr, 60 + k * 26, Lv.camY + H - 90));
     else Lv.players = G.players.map((pr, k) => newPlayer(pr, 40 + k * 20, 60));
     state = 'play'; stateT = 0; paused = false;
-    SFX.music(LEVELS[i].music);
+    SFX.music(Lv.d.music);
+    G.radio = null; G.recap = '';
+    radioBrief();
   }
 
   function newPlayer(pr, x, y) {
@@ -463,7 +537,7 @@
   }
   function killPlayer(p) {
     if (p.dead || p.ghost) return;
-    p.dead = true; p.deadT = 80; SFX.hurt();
+    p.dead = true; p.deadT = 80; SFX.hurt(); p.pr.deaths++;
     boom(p.x + p.w / 2, p.y + p.h / 2, 1.4, true); Lv.shake = 8;
     p.pr.weapon = 'P'; p.pr.rapid = false;
   }
@@ -478,7 +552,7 @@
     const pr = p.pr;
     if (pr.lives <= 0) {
       p.dead = false; p.ghost = true; p.gx = p.x + p.w / 2; p.gy = Lv.mode === 'base' ? -70 : Lv.camY + 74; p.reviveT = 0;
-      if (Lv.players.every(q => q.ghost)) { saveHi(); state = 'over'; stateT = 0; SFX.music('title'); }
+      if (Lv.players.every(q => q.ghost)) { saveHi(); state = 'over'; stateT = 0; SFX.music('title'); requestRecap('over'); }
       return;
     }
     pr.lives--;
@@ -615,6 +689,7 @@
     e.hp -= dmg; e.flash = 3; SFX.hit();
     if (e.hp > 0) return;
     e.remove = true;
+    if (own && e.type !== 'capsule') own.kills++;
     const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
     boom(cx, cy, e.type === 'turret' ? 1.6 : 1);
     addScore(SCORE[e.type] || 100, own, cx, cy - 10);
@@ -634,17 +709,17 @@
   function spawnBoss() {
     const ax = Lv.arenaX, gy = Lv.groundY, type = Lv.d.boss, mult = (1 + 0.5 * (G.players.length - 1)) * DF().boss;
     let b;
-    if (type === 'crab') b = { name: 'CUA THÉP K-9', x: ax + W + 10, y: gy - 46, w: 84, h: 46, hp: 150, vx: 0, vy: 0, mode: 'enter', modeT: 0, face: -1, shootT: 70, cycles: 0, targetX: ax + W - 130, mortarT: 160 };
+    if (type === 'crab') b = { name: DAILY.BOSS_NAMES.crab, x: ax + W + 10, y: gy - 46, w: 84, h: 46, hp: 150, vx: 0, vy: 0, mode: 'enter', modeT: 0, face: -1, shootT: 70, cycles: 0, targetX: ax + W - 130, mortarT: 160 };
     if (type === 'core') {
       const x = ax + W - 108, th = Math.round(28 * mult);
-      b = { name: 'LÒ RÈN VÔ CỰC', x, y: gy - 170, w: 108, h: 170, hp: 170, mode: 'closed', modeT: 0, openAmt: 0, spin: 0, cx: x + 60, cy: gy - 92, rise: 170,
+      b = { name: DAILY.BOSS_NAMES.core, x, y: gy - 170, w: 108, h: 170, hp: 170, mode: 'closed', modeT: 0, openAmt: 0, spin: 0, cx: x + 60, cy: gy - 92, rise: 170,
         turrets: [{ x: x + 2, y: gy - 146, hp: th, fireT: 40, ang: Math.PI, alive: true, flash: 0 }, { x: x + 2, y: gy - 34, hp: th, fireT: 80, ang: Math.PI, alive: true, flash: 0 }] };
     }
-    if (type === 'idol') b = { name: 'THẦN ĐÁ THÁC SẤM', cx: 240, cy: 64, hp: 220, mode: 'closed', modeT: 0, mouth: 0, fireT: 90, rise: 0,
+    if (type === 'idol') b = { name: DAILY.BOSS_NAMES.idol, cx: 240, cy: 64, hp: 220, mode: 'closed', modeT: 0, mouth: 0, fireT: 90, rise: 0,
       hands: [-1, 1].map(side => ({ side, x: 240 + side * 150, y: 110, hp: Math.round(40 * mult), alive: true, state: 'hover', t: side > 0 ? 70 : 0, flash: 0, vy: 0, tx: 240 })) };
-    if (type === 'mammoth') b = { name: 'VOI BĂNG MK-II', x: ax + W + 10, y: gy - 54, w: 104, h: 54, hp: 200, vx: 0, vy: 0, mode: 'enter', modeT: 0, face: -1, shootT: 80, cycles: 0, targetX: ax + W - 150 };
-    if (type === 'eye') b = { name: 'MẮT THẦN NGUYỆT', cx: ax + W + 80, cy: 70, hp: 300, mode: 'enter', modeT: 0, rot: 0, beamT: 120, spawnT: 300, ringT: 90, lookX: ax + W / 2, lookY: 150 };
-    if (type === 'serpent') b = { name: 'LONG HẠM THIÊN VÂN', hp: 240, hx: ax + W + 60, hy: 60, pt: 0, mode: 'fly', modeT: 0, hist: [], segs: [], fireT: 90, bombT: 120, face: -1, jaw: 0 };
+    if (type === 'mammoth') b = { name: DAILY.BOSS_NAMES.mammoth, x: ax + W + 10, y: gy - 54, w: 104, h: 54, hp: 200, vx: 0, vy: 0, mode: 'enter', modeT: 0, face: -1, shootT: 80, cycles: 0, targetX: ax + W - 150 };
+    if (type === 'eye') b = { name: DAILY.BOSS_NAMES.eye, cx: ax + W + 80, cy: 70, hp: 300, mode: 'enter', modeT: 0, rot: 0, beamT: 120, spawnT: 300, ringT: 90, lookX: ax + W / 2, lookY: 150 };
+    if (type === 'serpent') b = { name: DAILY.BOSS_NAMES.serpent, hp: 240, hx: ax + W + 60, hy: 60, pt: 0, mode: 'fly', modeT: 0, hist: [], segs: [], fireT: 90, bombT: 120, face: -1, jaw: 0 };
     b.hp = Math.round(b.hp * mult);
     Object.assign(b, { type, maxHp: b.hp, t: 0, flash: 0, alive: true, dying: 0 });
     Lv.boss = b;
@@ -684,7 +759,7 @@
     if (!fromStorm) chargeStorm(dmg * 0.3);
     if (b.hp <= 0) {
       b.hp = 0; b.alive = false; b.dying = 160; Lv.eB = []; Lv.beams = []; Lv.bossState = 'dying';
-      SFX.bigBoom(); Lv.shake = 12; addScore(10000, own);
+      SFX.bigBoom(); Lv.shake = 12; addScore(10000, own); if (own) own.bosses++;
     }
   }
 
@@ -1163,7 +1238,7 @@
   }
   function spawnGate() {
     const hp = Math.round(120 * (1 + 0.5 * (G.players.length - 1)) * DF().boss);
-    Lv.boss = { type: 'gate', name: 'CỔNG PHÁO ĐÀI', hp, maxHp: hp, alive: true, dying: 0, flash: 0, t: 0, open: 0, mode: 'closed', modeT: 0 };
+    Lv.boss = { type: 'gate', name: DAILY.BOSS_NAMES.gate, hp, maxHp: hp, alive: true, dying: 0, flash: 0, t: 0, open: 0, mode: 'closed', modeT: 0 };
   }
   // everything a player shot can hit in the corridor
   function baseTargets() {
@@ -1180,6 +1255,7 @@
     if (tg.kind === 'gate') { damageBoss(tg.ref, { id: 'core' }, dmg, own); return; }
     const r = tg.ref; r.hp -= dmg; r.flash = 3; SFX.hit();
     if (r.hp > 0) return;
+    if (own) own.kills++;
     if (tg.kind === 'sol') { r.remove = true; fxAt(r.z, () => { boom(r.x, -12, 1); addScore(150, own, r.x, -34); }); chargeStorm(3); return; }
     r.alive = false; fxAt(BZ, () => { boom(r.x, -tg.h, 1.8); addScore(500, own, r.x, -tg.h - 20); }); chargeStorm(8);
   }
@@ -1454,10 +1530,23 @@
       } else if (P.dash) { l.ready = false; SFX.select(); }
     }
     if (sys.split && netRole !== 'guest') setSplit(!splitKb);
+    if (sys.mode) setMode(mode === 'daily' ? 'campaign' : 'daily');
+    if (mode === 'daily' && daily.status === 'idle') loadDaily(localDate());
     if (sys.back) { if (lobby.length) lobby = []; else { state = 'title'; stateT = 0; } }
-    if (lobby.length && lobby.every(l => l.ready)) { if (++lobbyT > 50) { newRun(lobby); startStage(0); } }
+    const waiting = mode === 'daily' && daily.status !== 'ready';   // the countdown holds until the daily stage is in
+    if (lobby.length && lobby.every(l => l.ready) && !waiting) { if (++lobbyT > 50) { newRun(lobby); startStage(G.stage); requestLines(); } }
     else lobbyT = 0;
     titleX += 0.3;
+  }
+
+  // the radio fades out by itself; the boss taunt cuts in when the warning sirens start
+  function tickRadio() {
+    if (G.radio && --G.radio.t <= 0) G.radio = null;
+    if (Lv && Lv.bossState === 'warn' && !Lv.taunted) {
+      Lv.taunted = true;
+      const l = aiLines && aiLines[G.stage];
+      if (l && l.taunt) radio(DAILY.BOSS_NAMES[Lv.d.boss] || 'TRÙM', l.taunt, 420);
+    }
   }
 
   function step() {
@@ -1482,19 +1571,19 @@
         }
         if (sys.start && joined.has(startSlot())) pauseNow = true;
         if (pauseNow) paused = !paused;
-        if (!paused) stepPlay();
+        if (!paused) { stepPlay(); tickRadio(); }
         break;
       }
       case 'clear':
-        stepPlay();
+        stepPlay(); tickRadio();
         if ((stateT > 60 && anyPressed('start', 'fire')) || stateT > 420) {
-          if (G.stage + 1 < LEVELS.length) startStage(G.stage + 1);
-          else { state = 'victory'; stateT = 0; saveHi(); }
+          if (!G.daily && G.stage + 1 < CAMPAIGN) startStage(G.stage + 1);
+          else { state = 'victory'; stateT = 0; saveHi(); if (G.daily) saveDailyBest(); requestRecap('victory'); }
         }
         break;
       case 'over':
         if (stateT > 40 && (sys.start || anyPressed('fire', 'start')) && !sys.back) {
-          for (const pr of G.players) Object.assign(pr, { lives: DF().lives, score: 0, nextLife: 20000, weapon: 'P', rapid: false });
+          for (const pr of G.players) Object.assign(pr, { lives: DF().lives, score: 0, nextLife: 20000, weapon: 'P', rapid: false, kills: 0, deaths: 0, bosses: 0 });
           G.storm = 0; startStage(G.stage);
         } else if (stateT > 40 && sys.back) { state = 'title'; stateT = 0; SFX.music('title'); }
         break;
@@ -1562,7 +1651,7 @@
   function sendSnap() {
     if (!netWs || netWs.readyState !== 1) { sfxQueue.length = 0; return; }
     if (netWs.bufferedAmount > 512 * 1024) return;
-    const s = { t: 'snap', state, stateT, frame, paused, lobby, lobbyT, difficulty, hiscore, titleX, music: curMusic, sfx: sfxQueue.splice(0), G };
+    const s = { t: 'snap', state, stateT, frame, paused, lobby, lobbyT, difficulty, mode, daily: state === 'select' ? dailyInfo() : null, hiscore, titleX, music: curMusic, sfx: sfxQueue.splice(0), G };
     if (Lv && G && (state === 'play' || state === 'clear' || state === 'over')) {
       const L = Lv, b = L.boss;
       s.lv = {
@@ -1579,11 +1668,17 @@
   function applySnap(m) {
     state = m.state; stateT = m.stateT; frame = m.frame; paused = m.paused; lobby = m.lobby || []; lobbyT = m.lobbyT; if (m.difficulty !== undefined) difficulty = m.difficulty; titleX = m.titleX;
     hiscore = Math.max(hiscore, m.hiscore || 0); G = m.G || null;
+    mode = m.mode || 'campaign'; if (m.daily) hostDaily = m.daily;
     if (m.lv && G) {
-      if (!Lv || Lv.i !== m.lv.i) Lv = buildLevel(m.lv.i);
-      const amb = Lv.amb;
-      Object.assign(Lv, m.lv); Lv.amb = amb;
-      for (const p of Lv.players) p.pr = G.players[p.num];
+      if (G.daily) loadDaily(G.daily.date, G.daily.src);     // same plan as the host: fetched from the Worker or rolled locally
+      const def = levelDef(m.lv.i);
+      if (!def) Lv = null;
+      else {
+        if (!Lv || Lv.i !== m.lv.i || Lv.d !== def) Lv = buildLevel(m.lv.i);
+        const amb = Lv.amb;
+        Object.assign(Lv, m.lv); Lv.amb = amb;
+        for (const p of Lv.players) p.pr = G.players[p.num];
+      }
     }
     if (m.music !== guestMusic) { guestMusic = m.music; origMusic(m.music); }
     for (const n of m.sfx || []) if (SFX['_' + n]) SFX['_' + n]();
@@ -1659,13 +1754,13 @@
   lanEl.addEventListener('keydown', e => { if (e.target.id === 'lanRoom' && e.key === 'Enter') { e.target.blur(); SFX.init(); lanStart('guest'); } });
   fetch('lan-info', { cache: 'no-store' })
     .then(r => (r.ok ? r.json() : null))
-    .then(info => { if (info && (info.online || Array.isArray(info.ips))) { netInfo = info; lanUpdate(); } })
+    .then(info => { if (info && (info.online || Array.isArray(info.ips))) { netInfo = info; lanUpdate(); if (info.online) loadDaily(localDate()); } })
     .catch(() => { });
 
   // ---------- loop ----------
   let last = performance.now(), acc = 0;
   const V = { isTouch, slotName };
-  UI.init(document.getElementById('ui'), tap, pickDifficulty);
+  UI.init(document.getElementById('ui'), tap, pickDifficulty, m => { SFX.init(); if (state === 'select') setMode(m); });
   function loop(now) {
     const dtMs = Math.min(100, now - last);
     acc += dtMs; last = now;
@@ -1677,6 +1772,7 @@
     lanVisibility();
     V.state = state; V.stateT = stateT; V.frame = frame; V.paused = paused; V.G = G; V.Lv = Lv; V.lobby = lobby; V.lobbyT = lobbyT;
     V.hiscore = hiscore; V.team = teamScore(); V.netRole = netRole; V.splitKb = splitKb; V.difficulty = G && G.diff !== undefined ? G.diff : difficulty;
+    V.mode = mode; V.daily = state === 'select' ? dailyInfo() : null; V.dailyBest = dailyBest; V.lastStage = !!(G && (G.daily || G.stage + 1 >= CAMPAIGN));
     VIEW3D.render(V, dtMs);
     UI.render(V);
     requestAnimationFrame(loop);
@@ -1693,7 +1789,7 @@
     setDiff(d) { difficulty = d; },
   };
   function boot(data) {
-    if (data && data.playing && data.G && data.G.players) { G = data.G; startStage(G.stage); }
+    if (data && data.playing && data.G && data.G.players && LEVELS[data.G.stage]) { G = data.G; startStage(G.stage); }
     else SFX.music('title');
     requestAnimationFrame(t => { last = t; loop(t); });
   }
